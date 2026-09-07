@@ -8,8 +8,8 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspaces --if-present",
-    "dev:api": "npm --workspace=apps/api run start:dev",
+    "dev": "concurrently -n \"api,web\" -c \"cyan,magenta\" \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm --workspace=apps/api run dev",
     "dev:web": "npm --workspace=apps/web run dev",
     "build": "npm run build --workspaces --if-present",
     "build:api": "npm --workspace=apps/api run build",
@@ -43,5 +43,8 @@
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=10.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
   }
 }
