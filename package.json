@@ -1,0 +1,47 @@
+{
+  "name": "mini-pos-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mini POS & Mini Ecommerce Monorepo with Next.js, NestJS, PostgreSQL (Drizzle), Redis, BullMQ, and GraphQL",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:api": "npm --workspace=apps/api run start:dev",
+    "dev:web": "npm --workspace=apps/web run dev",
+    "build": "npm run build --workspaces --if-present",
+    "build:api": "npm --workspace=apps/api run build",
+    "build:web": "npm --workspace=apps/web run build",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:api": "npm --workspace=apps/api run test",
+    "test:e2e": "npm --workspace=apps/web run test:e2e",
+    "db:generate": "npm --workspace=apps/api run db:generate",
+    "db:migrate": "npm --workspace=apps/api run db:migrate",
+    "db:seed": "npm --workspace=apps/api run db:seed",
+    "db:studio": "npm --workspace=apps/api run db:studio",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "keywords": [
+    "nextjs",
+    "nestjs",
+    "pos",
+    "ecommerce",
+    "drizzle-orm",
+    "graphql",
+    "redis",
+    "bullmq",
+    "docker"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
