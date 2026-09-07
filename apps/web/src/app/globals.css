@@ -2,50 +2,101 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #0b0f17;
-  --foreground: #f8fafc;
+@layer base {
+  :root {
+    --bg-base: #080C14;
+    --bg-surface: #0F1626;
+    --bg-card: #151F33;
+    --bg-card-hover: #1C2942;
+    --border-subtle: #202D45;
+    --border-accent: rgba(16, 185, 129, 0.4);
+    --text-primary: #F8FAFC;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+    --accent-emerald: #10B981;
+    --accent-indigo: #6366F1;
+    --accent-amber: #F59E0B;
+  }
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: var(--text-primary);
+  background-color: var(--bg-base);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Custom scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #0b0f17;
+  background: var(--bg-base);
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a364f;
+  background: #24324d;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3b4d70;
+  background: #36496e;
 }
 
-/* Glass panel utility */
+/* Glassmorphism primitives */
 .glass-panel {
-  background: rgba(19, 27, 42, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(42, 54, 79, 0.8);
+  background: rgba(15, 22, 38, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
 }
 
-.glass-panel-interactive {
-  background: rgba(19, 27, 42, 0.75);
+.glass-card {
+  background: rgba(21, 31, 51, 0.7);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(42, 54, 79, 0.8);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.glass-panel-interactive:hover {
-  border-color: rgba(16, 185, 129, 0.5);
+
+.glass-card-interactive {
+  background: rgba(21, 31, 51, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-card-interactive:hover {
+  background: rgba(28, 41, 66, 0.85);
+  border-color: rgba(16, 185, 129, 0.4);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px -8px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 0 15px -3px rgba(16, 185, 129, 0.15);
+}
+.glass-card-interactive:active {
+  transform: scale(0.98);
+}
+
+/* Tactile button active depression */
+.btn-tactile {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-tactile:active {
+  transform: scale(0.96);
+}
+
+/* Scan laser animation */
+@keyframes scanLaser {
+  0% { top: 0%; opacity: 0.8; }
+  50% { top: 100%; opacity: 1; }
+  100% { top: 0%; opacity: 0.8; }
+}
+
+.animate-scan-laser {
+  animation: scanLaser 2s ease-in-out infinite;
+}
+
+/* Thermal receipt paper aesthetic */
+.thermal-receipt {
+  background: #ffffff;
+  color: #1a1a1a;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  font-family: 'Courier New', Courier, monospace;
 }
