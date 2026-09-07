@@ -1,5 +1,5 @@
 import * as dotenv from 'dotenv';
-import postgres from 'postgres';
+const postgres = require('postgres');
 import { drizzle } from 'drizzle-orm/postgres-js';
 import * as bcrypt from 'bcrypt';
 import * as schema from './schema';

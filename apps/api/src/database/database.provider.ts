@@ -1,7 +1,7 @@
 import { Provider } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+const postgres = require('postgres');
 import * as schema from './schema';
 
 export const DRIZZLE_PROVIDER = 'DRIZZLE_DATABASE';
