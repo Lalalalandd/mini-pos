@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -22,6 +22,15 @@ export class OrdersController {
     return this.ordersService.findAll(limit ? Number(limit) : 50);
   }
 
+  @Get('reports')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get detailed sales and product performance reports (Admin only)' })
+  async getReports() {
+    return this.ordersService.getReports();
+  }
+
   @Get('dashboard/metrics')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
@@ -37,6 +46,19 @@ export class OrdersController {
   @ApiOperation({ summary: 'Get order details by ID' })
   async findOne(@Param('id') id: string) {
     return this.ordersService.getOrderById(id);
+  }
+
+  @Patch(':id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update order status / refund order (Admin only)' })
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: any,
+    @Body('restock') restock?: boolean,
+  ) {
+    return this.ordersService.updateStatus(id, status, restock);
   }
 
   @Post()

@@ -1,99 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --bg-app: #09090b;
-    --bg-subtle: #121215;
-    --bg-surface: #18181b;
-    --bg-surface-hover: #222226;
-    --bg-elevated: #27272a;
-    --border-base: #27272a;
-    --border-muted: #1f1f23;
-    --border-highlight: #3f3f46;
-    --text-main: #f4f4f5;
-    --text-muted: #a1a1aa;
-    --text-faint: #71717a;
-    --accent: #10b981;
-    --accent-hover: #059669;
+    --bg-page: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-subtle: #f1f5f9;
+    --border-color: #e2e8f0;
+    --border-darker: #cbd5e1;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+  }
+
+  * {
+    font-family: 'Plus Jakarta Sans', var(--font-plus-jakarta-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  body {
+    color: var(--text-primary);
+    background-color: var(--bg-page);
+    font-family: 'Plus Jakarta Sans', var(--font-plus-jakarta-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  button, input, select, textarea {
+    font-family: inherit;
   }
 }
 
-body {
-  color: var(--text-main);
-  background-color: var(--bg-app);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  letter-spacing: -0.011em;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
 
-/* Number typography helper */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
-/* Crisp 1px borders & surfaces */
-.surface-panel {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-base);
+/* Solid Clean Card & Panel */
+.panel {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
 }
 
-.surface-card {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-base);
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+.panel-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
-.surface-card:hover {
-  border-color: var(--border-highlight);
-  background-color: var(--bg-surface-hover);
-}
-
-.surface-subtle {
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-muted);
+.panel-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
 }
 
-/* Tactile button states */
+/* Tactile Buttons */
 .btn-primary {
-  background-color: #10b981;
-  color: #09090b;
+  background-color: #2563eb;
+  color: #ffffff;
   font-weight: 600;
-  transition: all 0.12s ease;
+  transition: background-color 0.12s ease;
 }
 .btn-primary:hover {
-  background-color: #34d399;
+  background-color: #1d4ed8;
 }
 .btn-primary:active {
-  transform: scale(0.98);
+  transform: scale(0.99);
 }
 
 .btn-secondary {
-  background-color: #27272a;
-  color: #f4f4f5;
-  border: 1px solid #3f3f46;
+  background-color: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  font-weight: 500;
   transition: all 0.12s ease;
 }
 .btn-secondary:hover {
-  background-color: #3f3f46;
-}
-.btn-secondary:active {
-  transform: scale(0.98);
+  background-color: #f1f5f9;
+  border-color: #94a3b8;
 }
 
-/* Custom minimal scrollbar */
+/* Minimal Scrollbars */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f1f5f9;
 }
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: #cbd5e1;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: #94a3b8;
 }

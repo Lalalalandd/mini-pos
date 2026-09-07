@@ -11,126 +11,125 @@ import {
   Sparkles,
   Barcode,
   CheckCircle2,
+  Store,
 } from 'lucide-react';
 
 export default function HomePage() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-10 relative overflow-hidden">
-      {/* Background ambient lighting */}
-      <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-10 right-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="max-w-5xl w-full text-center space-y-7 relative z-10 my-auto">
+    <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-10">
+      <div className="max-w-5xl w-full text-center space-y-8 my-auto">
         {/* Anti-slop pill banner */}
-        <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full glass-panel text-xs font-semibold text-emerald-400 border border-emerald-500/30 shadow-glow">
-          <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-          <span>Arsitektur Anti-Slop & High-Performance POS</span>
+        <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-50 text-xs font-semibold text-blue-700 border border-blue-200">
+          <Store className="w-3.5 h-3.5" />
+          <span>Sistem Mini POS & E-Commerce Terpadu</span>
         </div>
 
         {/* Hero Title */}
-        <h1 className="text-3xl sm:text-6xl font-black tracking-tight text-white leading-tight">
-          Sistem <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">Point of Sale & Toko Online</span> Terpadu
-        </h1>
+        <div className="space-y-3">
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-slate-900 leading-tight">
+            Sistem Point of Sale & Katalog Toko Modern
+          </h1>
 
-        <p className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
-          Dirancang untuk kecepatan operasional kasir retail dan fleksibilitas katalog online. Ditenagai Next.js 15, NestJS REST + GraphQL, Drizzle ORM, dan BullMQ worker.
-        </p>
+          <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
+            Aplikasi POS kasir berkecepatan tinggi dan etalase toko online. Ditenagai oleh Next.js 15 App Router, NestJS REST & GraphQL, PostgreSQL, Drizzle ORM, Redis, dan BullMQ.
+          </p>
+        </div>
 
-        {/* Interactive Feature Portals */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-4 text-left">
+        {/* Interactive Feature Portals - Clean Light Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 text-left">
           {/* Card 1: POS Terminal */}
           <Link
             href="/pos"
-            className="glass-card-interactive p-6 rounded-3xl flex flex-col justify-between group border-emerald-500/30 hover:border-emerald-400"
+            className="bg-white border border-slate-200 rounded-lg p-6 flex flex-col justify-between hover:border-blue-600 hover:shadow-md transition-all group"
           >
             <div>
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Terminal className="w-6 h-6" />
+              <div className="w-10 h-10 rounded-md bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                <Terminal className="w-5 h-5" />
               </div>
-              <div className="flex items-center space-x-2 mb-1">
-                <h2 className="text-lg font-bold text-white">Terminal Kasir POS</h2>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-300 font-bold">
-                  FAST
+              <div className="flex items-center space-x-2 mb-1.5">
+                <h2 className="text-base font-bold text-slate-900">Terminal Kasir POS</h2>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-50 text-blue-700 font-bold border border-blue-200">
+                  KASIR
                 </span>
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Scan barcode laser, kalkulasi kembalian tunai, tender QRIS instan, dan preview struk thermal.
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Scan barcode laser (F2), kalkulasi kembalian tunai, tender QRIS instan, dan preview cetak struk thermal.
               </p>
             </div>
-            <div className="flex items-center text-xs font-bold text-emerald-400 mt-6 group-hover:translate-x-1.5 transition-transform">
+            <div className="flex items-center text-xs font-semibold text-blue-600 mt-6 group-hover:translate-x-1 transition-transform">
               <span>Buka Terminal Kasir</span>
-              <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+              <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </div>
           </Link>
 
           {/* Card 2: E-Commerce Storefront */}
           <Link
             href="/catalog"
-            className="glass-card-interactive p-6 rounded-3xl flex flex-col justify-between group border-indigo-500/30 hover:border-indigo-400"
+            className="bg-white border border-slate-200 rounded-lg p-6 flex flex-col justify-between hover:border-blue-600 hover:shadow-md transition-all group"
           >
             <div>
-              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <ShoppingBag className="w-6 h-6" />
+              <div className="w-10 h-10 rounded-md bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                <ShoppingBag className="w-5 h-5" />
               </div>
-              <div className="flex items-center space-x-2 mb-1">
-                <h2 className="text-lg font-bold text-white">Katalog Online</h2>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-300 font-bold">
+              <div className="flex items-center space-x-2 mb-1.5">
+                <h2 className="text-base font-bold text-slate-900">Katalog Online</h2>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-50 text-blue-700 font-bold border border-blue-200">
                   STORE
                 </span>
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Katalog produk artisan dengan cache Redis, drawer keranjang dinamis, dan kode voucher promo.
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Katalog produk dengan pencarian instan, drawer keranjang belanja, voucher diskon, dan kalkulasi ongkir.
               </p>
             </div>
-            <div className="flex items-center text-xs font-bold text-indigo-400 mt-6 group-hover:translate-x-1.5 transition-transform">
+            <div className="flex items-center text-xs font-semibold text-blue-600 mt-6 group-hover:translate-x-1 transition-transform">
               <span>Jelajahi Produk</span>
-              <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+              <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </div>
           </Link>
 
           {/* Card 3: Admin Operations */}
           <Link
             href="/admin/dashboard"
-            className="glass-card-interactive p-6 rounded-3xl flex flex-col justify-between group border-amber-500/30 hover:border-amber-400"
+            className="bg-white border border-slate-200 rounded-lg p-6 flex flex-col justify-between hover:border-blue-600 hover:shadow-md transition-all group"
           >
             <div>
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <ShieldCheck className="w-6 h-6" />
+              <div className="w-10 h-10 rounded-md bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                <ShieldCheck className="w-5 h-5" />
               </div>
-              <div className="flex items-center space-x-2 mb-1">
-                <h2 className="text-lg font-bold text-white">Admin Operations</h2>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-300 font-bold">
-                  METRICS
+              <div className="flex items-center space-x-2 mb-1.5">
+                <h2 className="text-base font-bold text-slate-900">Admin Operations</h2>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-50 text-blue-700 font-bold border border-blue-200">
+                  ADMIN
                 </span>
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Analitik omzet real-time, manajemen stok kritis, modal restock cepat, dan status antrean BullMQ.
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Ringkasan KPI omzet penjualan, manajemen inventaris stok minimum, log transaksi POS, dan worker BullMQ.
               </p>
             </div>
-            <div className="flex items-center text-xs font-bold text-amber-400 mt-6 group-hover:translate-x-1.5 transition-transform">
+            <div className="flex items-center text-xs font-semibold text-blue-600 mt-6 group-hover:translate-x-1 transition-transform">
               <span>Masuk Dashboard</span>
-              <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+              <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </div>
           </Link>
         </div>
 
-        {/* Tech Stack Chips */}
-        <div className="pt-6 flex flex-wrap items-center justify-center gap-2.5 text-xs text-slate-400">
-          <span className="flex items-center space-x-1.5 px-3 py-1 rounded-full glass-panel border-pos-border">
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
+        {/* Tech Stack Badges */}
+        <div className="pt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-600">
+          <span className="flex items-center space-x-1.5 px-3 py-1 rounded-md bg-white border border-slate-200">
+            <Zap className="w-3.5 h-3.5 text-blue-600" />
             <span>Next.js 15 App Router</span>
           </span>
-          <span className="flex items-center space-x-1.5 px-3 py-1 rounded-full glass-panel border-pos-border">
-            <Cpu className="w-3.5 h-3.5 text-red-400" />
+          <span className="flex items-center space-x-1.5 px-3 py-1 rounded-md bg-white border border-slate-200">
+            <Cpu className="w-3.5 h-3.5 text-blue-600" />
             <span>NestJS REST & GraphQL</span>
           </span>
-          <span className="flex items-center space-x-1.5 px-3 py-1 rounded-full glass-panel border-pos-border">
-            <Database className="w-3.5 h-3.5 text-blue-400" />
+          <span className="flex items-center space-x-1.5 px-3 py-1 rounded-md bg-white border border-slate-200">
+            <Database className="w-3.5 h-3.5 text-blue-600" />
             <span>PostgreSQL & Drizzle ORM</span>
           </span>
-          <span className="flex items-center space-x-1.5 px-3 py-1 rounded-full glass-panel border-pos-border">
-            <Layers className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Redis & BullMQ Queues</span>
+          <span className="flex items-center space-x-1.5 px-3 py-1 rounded-md bg-white border border-slate-200">
+            <Layers className="w-3.5 h-3.5 text-blue-600" />
+            <span>Redis Cache & BullMQ Queue</span>
           </span>
         </div>
       </div>

@@ -3,19 +3,17 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'react-toastify';
 import {
   Store,
-  Lock,
   ArrowRight,
-  Shield,
-  CreditCard,
-  UserCheck,
-  CheckCircle2,
+  ShieldCheck,
+  Terminal,
+  ShoppingBag,
   AlertCircle,
   Clock,
-  Sparkles,
   Layers,
-  Terminal,
+  CheckCircle2,
 } from 'lucide-react';
 import { restFetch } from '@/lib/api-client';
 
@@ -31,23 +29,26 @@ export default function LoginPage() {
     ADMIN: {
       email: 'admin@minipos.local',
       title: 'Super Administrator',
-      subtitle: 'Akses penuh laporan keuangan, analitik, dan manajemen katalog.',
+      subtitle: 'Akses penuh laporan penjualan, manajemen stok, dan pengaturan.',
       redirect: '/admin/dashboard',
+      icon: ShieldCheck,
       badge: 'Admin Console',
     },
     CASHIER: {
       email: 'cashier@minipos.local',
       title: 'Kasir Retail POS',
-      subtitle: 'Terminal kasir cepat dengan scan barcode & cetak struk thermal.',
+      subtitle: 'Terminal kasir cepat, pencarian barcode, dan struk transaksi.',
       redirect: '/pos',
-      badge: 'Terminal #01',
+      icon: Terminal,
+      badge: 'Terminal Kasir',
     },
     CUSTOMER: {
       email: 'customer@minipos.local',
       title: 'Pelanggan Toko',
-      subtitle: 'Katalog belanja online artisan dengan keranjang instan.',
+      subtitle: 'Katalog belanja online dengan keranjang belanja interaktif.',
       redirect: '/catalog',
-      badge: 'Storefront',
+      icon: ShoppingBag,
+      badge: 'Toko Online',
     },
   };
 
@@ -82,99 +83,107 @@ export default function LoginPage() {
       localStorage.setItem('refresh_token', res.refreshToken);
       localStorage.setItem('user', JSON.stringify(res.user));
 
+      toast.success(`Selamat datang kembali, ${res.user.name || role}!`);
       router.push(roleConfigs[role].redirect);
     } catch (err: any) {
-      setError(err.message || 'Login gagal. Periksa kembali kredensial Anda.');
+      const errMsg = err.message || 'Gagal masuk akun';
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] grid grid-cols-1 lg:grid-cols-12 text-zinc-100">
+    <div className="min-h-[calc(100vh-57px)] bg-slate-50 grid grid-cols-1 lg:grid-cols-12 text-slate-900">
       {/* ============================================================ */}
-      {/* LEFT PANEL: Professional Editorial & Store Shift Context */}
+      {/* LEFT PANEL: Clean Store Info & Context */}
       {/* ============================================================ */}
-      <div className="lg:col-span-6 xl:col-span-7 bg-[#121215] border-r border-zinc-800/80 p-8 sm:p-14 flex flex-col justify-between relative overflow-hidden">
-        {/* Top Branding */}
+      <div className="lg:col-span-6 xl:col-span-7 bg-white border-r border-slate-200 p-8 sm:p-14 flex flex-col justify-between">
+        {/* Top Info */}
         <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-lg bg-emerald-500 text-zinc-950 flex items-center justify-center font-bold">
-              <Store className="w-5 h-5 text-zinc-950" />
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold">
+              <Store className="w-4 h-4" />
             </div>
             <div>
-              <span className="font-bold tracking-tight text-white text-base">AuraPOS</span>
-              <span className="text-xs text-zinc-500 block -mt-0.5">Enterprise POS & Commerce</span>
+              <span className="font-bold text-slate-900 text-base">AuraPOS</span>
+              <span className="text-xs text-slate-500 block -mt-0.5">Enterprise Point of Sale & Commerce</span>
             </div>
-          </Link>
+          </div>
 
-          <div className="flex items-center space-x-2 text-xs text-zinc-400 font-mono bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-md">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Store ID: #JKT-089</span>
+          <div className="flex items-center space-x-2 text-xs text-slate-600 font-mono bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-md">
+            <span className="w-2 h-2 rounded-full bg-emerald-600" />
+            <span>Outlet #JKT-089</span>
           </div>
         </div>
 
-        {/* Center Context & Metrics Snapshot */}
+        {/* Center Editorial Description */}
         <div className="my-10 space-y-6 max-w-lg">
           <div className="space-y-2">
-            <div className="inline-flex items-center space-x-2 px-2.5 py-1 rounded bg-zinc-800/70 border border-zinc-700/60 text-xs text-zinc-300 font-medium">
-              <span>Shift Aktif: Shift Pagi (08:00 - 16:00)</span>
+            <div className="inline-flex items-center space-x-2 px-2.5 py-1 rounded bg-slate-100 border border-slate-200 text-xs text-slate-700 font-medium">
+              <Clock className="w-3.5 h-3.5 text-slate-500" />
+              <span>Shift Aktif: Pagi (08:00 - 16:00)</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-snug">
-              Point of Sale Terintegrasi untuk Bisnis Modern.
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight leading-snug">
+              Sistem Point of Sale & Manajemen Toko Terintegrasi.
             </h1>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              Solusi kasir cepat berbasis barcode, katalog produk terinkronisasi, dan manajemen operasional omnichannel dalam satu sistem.
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Memproses transaksi kasir cepat, mencatat stok inventori secara real-time, dan mengelola katalog online dalam satu aplikasi.
             </p>
           </div>
 
-          {/* Feature Bullets */}
+          {/* Clean Feature Blocks */}
           <div className="grid grid-cols-2 gap-3 pt-2">
-            <div className="p-3.5 rounded-lg bg-zinc-900/80 border border-zinc-800 space-y-1">
-              <div className="text-xs font-semibold text-zinc-200 flex items-center space-x-1.5">
-                <Terminal className="w-3.5 h-3.5 text-emerald-400" />
+            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+              <div className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                <Terminal className="w-3.5 h-3.5 text-blue-600" />
                 <span>Kasir Cepat & Struk</span>
               </div>
-              <p className="text-[11px] text-zinc-500">Scan barcode, uang pas, tender QRIS dinamis.</p>
+              <p className="text-[11px] text-slate-500 leading-normal">
+                Scan barcode, nominal uang pas, tender QRIS, dan cetak struk thermal.
+              </p>
             </div>
-            <div className="p-3.5 rounded-lg bg-zinc-900/80 border border-zinc-800 space-y-1">
-              <div className="text-xs font-semibold text-zinc-200 flex items-center space-x-1.5">
-                <Layers className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Real-time Stok & Sync</span>
+            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+              <div className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                <Layers className="w-3.5 h-3.5 text-slate-700" />
+                <span>Otomasi Stok & Queue</span>
               </div>
-              <p className="text-[11px] text-zinc-500">Otomasi antrean BullMQ dan peringatan stok minimum.</p>
+              <p className="text-[11px] text-slate-500 leading-normal">
+                Notifikasi stok minimum dan proses antrean latar belakang BullMQ.
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Bottom Store Info */}
-        <div className="pt-6 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-500">
+        {/* Bottom Metadata */}
+        <div className="pt-6 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
           <span>AuraPOS System v1.0.0</span>
-          <span>Yogyakarta Outlet • Kasir Siap</span>
+          <span>Status Sistem Normal</span>
         </div>
       </div>
 
       {/* ============================================================ */}
-      {/* RIGHT PANEL: Clean, Focused Auth Form with Role Switcher */}
+      {/* RIGHT PANEL: Clean White Form */}
       {/* ============================================================ */}
       <div className="lg:col-span-6 xl:col-span-5 p-8 sm:p-14 flex flex-col justify-center max-w-md mx-auto w-full">
         <div className="space-y-6">
-          <div className="space-y-1.5">
-            <h2 className="text-2xl font-bold text-white tracking-tight">Masuk ke Sistem</h2>
-            <p className="text-xs text-zinc-400">Pilih peran demo di bawah untuk mengisi data akun secara instan.</p>
+          <div className="space-y-1">
+            <h2 className="text-xl font-bold text-slate-900">Masuk ke Akun</h2>
+            <p className="text-xs text-slate-600">Pilih peran akun di bawah untuk mengisi data otomatis.</p>
           </div>
 
           {error && (
-            <div className="p-3 rounded-lg bg-red-950/30 border border-red-800/60 text-red-300 text-xs flex items-center space-x-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-400" />
+            <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* Segmented Role Switcher */}
+          {/* Segmented Role Selector */}
           <div className="space-y-2">
-            <label className="text-xs font-medium text-zinc-300">Pilih Akses Peran Demo</label>
-            <div className="grid grid-cols-3 gap-1.5 p-1 bg-zinc-900 border border-zinc-800 rounded-lg">
+            <label className="text-xs font-semibold text-slate-700">Pilih Akun Demo</label>
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 border border-slate-200 rounded-lg">
               {(['ADMIN', 'CASHIER', 'CUSTOMER'] as const).map((r) => {
                 const active = role === r;
                 return (
@@ -182,10 +191,10 @@ export default function LoginPage() {
                     key={r}
                     type="button"
                     onClick={() => handleRoleSelect(r)}
-                    className={`py-2 px-2.5 rounded-md text-xs font-medium transition-all ${
+                    className={`py-2 px-2 rounded-md text-xs font-semibold transition-all ${
                       active
-                        ? 'bg-zinc-800 text-white font-semibold shadow-sm border border-zinc-700'
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        ? 'bg-white text-blue-700 shadow-sm border border-slate-200'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     {r === 'ADMIN' ? 'Admin' : r === 'CASHIER' ? 'Kasir' : 'Customer'}
@@ -194,52 +203,51 @@ export default function LoginPage() {
               })}
             </div>
 
-            {/* Scope Helper Box */}
-            <div className="p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/80 text-xs text-zinc-300 space-y-0.5">
-              <div className="font-semibold text-emerald-400 text-[11px] uppercase tracking-wider">
-                {roleConfigs[role].badge}
+            <div className="p-3 rounded-md bg-blue-50 border border-blue-100 text-xs space-y-0.5">
+              <div className="font-bold text-blue-800 text-[11px]">
+                {roleConfigs[role].title}
               </div>
-              <p className="text-zinc-400 text-[11px]">{roleConfigs[role].subtitle}</p>
+              <p className="text-blue-700 text-[11px] leading-normal">{roleConfigs[role].subtitle}</p>
             </div>
           </div>
 
-          {/* Sign In Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-300">Email Pengguna</label>
+          {/* Form Fields */}
+          <form onSubmit={handleSubmit} className="space-y-3.5">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700">Email Pengguna</label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-500 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder:text-zinc-600 outline-none font-mono"
+                className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3.5 py-2 text-xs text-slate-900 outline-none font-mono"
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <div className="flex justify-between items-center text-xs">
-                <label className="font-medium text-zinc-300">Kata Sandi</label>
-                <span className="text-zinc-500 text-[11px]">password123</span>
+                <label className="font-semibold text-slate-700">Kata Sandi</label>
+                <span className="text-slate-500 font-mono text-[11px]">password123</span>
               </div>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-500 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder:text-zinc-600 outline-none font-mono"
+                className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-md px-3.5 py-2 text-xs text-slate-900 outline-none font-mono"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-all flex items-center justify-center space-x-2 mt-2"
+              className="w-full py-2.5 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-colors flex items-center justify-center space-x-2 mt-2 shadow-sm"
             >
               {loading ? (
-                <span>Memverifikasi...</span>
+                <span>Memproses...</span>
               ) : (
                 <>
-                  <span>Masuk ke {roleConfigs[role].title}</span>
+                  <span>Masuk sebagai {roleConfigs[role].title}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}
@@ -247,8 +255,8 @@ export default function LoginPage() {
           </form>
 
           <div className="text-center pt-2">
-            <Link href="/" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
-              ← Kembali ke Halaman Utama
+            <Link href="/" className="text-xs text-slate-500 hover:text-slate-800 transition-colors">
+              Kembali ke Beranda
             </Link>
           </div>
         </div>

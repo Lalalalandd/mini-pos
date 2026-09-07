@@ -155,25 +155,152 @@ export class OrdersService {
     return list.map(this.formatOrder);
   }
 
+  async updateStatus(orderId: string, status: any, restock = false) {
+    const order = await this.getOrderById(orderId);
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+
+    const previousStatus = order.status;
+
+    await this.db
+      .update(orders)
+      .set({
+        status: status as any,
+        paymentStatus: status === 'REFUNDED' ? 'REFUNDED' : status === 'CANCELLED' ? 'FAILED' : 'PAID',
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId));
+
+    // If refunding/cancelling and restock is requested, restore product stock
+    if ((status === 'REFUNDED' || status === 'CANCELLED') && restock && previousStatus === 'COMPLETED') {
+      for (const item of order.items) {
+        if (item.productId) {
+          const prod = await this.db.query.products.findFirst({
+            where: eq(products.id, item.productId),
+          });
+          if (prod) {
+            await this.db
+              .update(products)
+              .set({ stock: prod.stock + item.quantity, updatedAt: new Date() })
+              .where(eq(products.id, item.productId));
+          }
+        }
+      }
+      await this.redisService.invalidatePrefix('catalog:');
+    }
+
+    return this.getOrderById(orderId);
+  }
+
+  async getReports() {
+    const allOrders = await this.db.select().from(orders);
+    const allItems = await this.db.select().from(orderItems);
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+
+    const completedOrders = allOrders.filter((o) => o.status === 'COMPLETED');
+    const totalSales = completedOrders.reduce((sum, o) => sum + parseFloat(o.finalAmount), 0);
+    const totalTransactions = completedOrders.length;
+
+    // Daily calculation
+    const todayOrders = completedOrders.filter(
+      (o) => o.createdAt.toISOString().slice(0, 10) === todayStr,
+    );
+    const dailySales = todayOrders.reduce((sum, o) => sum + parseFloat(o.finalAmount), 0);
+
+    // Weekly calculation (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(now.getDate() - 7);
+    const weeklyOrders = completedOrders.filter((o) => new Date(o.createdAt) >= sevenDaysAgo);
+    const weeklySales = weeklyOrders.reduce((sum, o) => sum + parseFloat(o.finalAmount), 0);
+
+    // Monthly calculation (this month)
+    const currentMonth = now.toISOString().slice(0, 7);
+    const monthlyOrders = completedOrders.filter(
+      (o) => o.createdAt.toISOString().slice(0, 7) === currentMonth,
+    );
+    const monthlySales = monthlyOrders.reduce((sum, o) => sum + parseFloat(o.finalAmount), 0);
+
+    // Top products aggregation
+    const productStats = new Map<string, { name: string; sku: string; quantity: number; revenue: number }>();
+    for (const item of allItems) {
+      const existing = productStats.get(item.productName) || {
+        name: item.productName,
+        sku: item.productSku,
+        quantity: 0,
+        revenue: 0,
+      };
+      existing.quantity += item.quantity;
+      existing.revenue += parseFloat(item.subtotal);
+      productStats.set(item.productName, existing);
+    }
+
+    const topProducts = Array.from(productStats.values())
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 10);
+
+    // Last 7 days revenue chart data points
+    const chartDays = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
+      const dayName = d.toLocaleDateString('id-ID', { weekday: 'short' });
+      const dayTotal = completedOrders
+        .filter((o) => o.createdAt.toISOString().slice(0, 10) === dateStr)
+        .reduce((sum, o) => sum + parseFloat(o.finalAmount), 0);
+      const dayTxCount = completedOrders.filter(
+        (o) => o.createdAt.toISOString().slice(0, 10) === dateStr,
+      ).length;
+
+      chartDays.push({
+        date: dateStr,
+        day: dayName,
+        revenue: dayTotal,
+        transactions: dayTxCount,
+      });
+    }
+
+    return {
+      totalSales,
+      totalTransactions,
+      dailySales,
+      dailyTransactions: todayOrders.length,
+      weeklySales,
+      weeklyTransactions: weeklyOrders.length,
+      monthlySales,
+      monthlyTransactions: monthlyOrders.length,
+      topProducts,
+      chartDays,
+    };
+  }
+
   async getDashboardMetrics() {
     const allOrders = await this.db.select().from(orders);
     const today = new Date().toISOString().slice(0, 10);
 
-    const todayOrders = allOrders.filter(
+    const completedOrders = allOrders.filter((o) => o.status === 'COMPLETED');
+    const todayOrders = completedOrders.filter(
       (o) => o.createdAt.toISOString().slice(0, 10) === today,
     );
 
     const todaySales = todayOrders.reduce((sum, o) => sum + parseFloat(o.finalAmount), 0);
     const todayTransactions = todayOrders.length;
+    const totalSales = completedOrders.reduce((sum, o) => sum + parseFloat(o.finalAmount), 0);
+    const totalOrdersCount = allOrders.length;
 
     const lowStockProducts = await this.db
       .select()
       .from(products)
       .where(sql`${products.stock} <= ${products.minStockAlert}`);
 
-    const recentOrders = await this.findAll(5);
+    const recentOrders = await this.findAll(10);
+    const reports = await this.getReports();
 
     return {
+      totalSales,
+      totalOrdersCount,
       todaySales,
       todayTransactions,
       lowStockItemsCount: lowStockProducts.length,
@@ -186,6 +313,8 @@ export class OrdersService {
         stock: p.stock,
         minStockAlert: p.minStockAlert,
       })),
+      revenueChart: reports.chartDays,
+      topProducts: reports.topProducts,
     };
   }
 

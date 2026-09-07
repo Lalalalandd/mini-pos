@@ -2,40 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { toast } from 'react-toastify';
 import {
   Store,
   Terminal,
   ShoppingBag,
   ShieldCheck,
-  Clock,
-  Wifi,
-  Keyboard,
-  X,
-  Sparkles,
+  Search,
+  User,
+  LogOut,
 } from 'lucide-react';
 
 export function Header() {
   const pathname = usePathname();
-  const [time, setTime] = useState<string>('');
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
-
-  useEffect(() => {
-    const updateClock = () => {
-      const now = new Date();
-      setTime(
-        now.toLocaleTimeString('id-ID', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        }),
-      );
-    };
-    updateClock();
-    const timer = setInterval(updateClock, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const [headerSearch, setHeaderSearch] = useState('');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -44,167 +27,188 @@ export function Header() {
         try {
           setCurrentUser(JSON.parse(saved));
         } catch {}
+      } else {
+        setCurrentUser(null);
       }
     }
   }, [pathname]);
 
-  const navLinks = [
-    {
-      href: '/pos',
-      label: 'Cashier POS',
-      icon: Terminal,
-      color: 'emerald',
-      activeColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
-    },
-    {
-      href: '/catalog',
-      label: 'Online Store',
-      icon: ShoppingBag,
-      color: 'indigo',
-      activeColor: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30',
-    },
-    {
-      href: '/admin/dashboard',
-      label: 'Admin Ops',
-      icon: ShieldCheck,
-      color: 'amber',
-      activeColor: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
-    },
-  ];
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+    }
+    setCurrentUser(null);
+    toast.success('Berhasil keluar dari akun.');
+    router.push('/login');
+  };
+
+  const handleHeaderSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (headerSearch.trim()) {
+      router.push(`/catalog?q=${encodeURIComponent(headerSearch.trim())}`);
+    } else {
+      router.push('/catalog');
+    }
+  };
+
+  const isCashier = currentUser?.role === 'CASHIER';
+  const isAdmin = currentUser?.role === 'ADMIN';
+  const isCustomerOrPublic = !currentUser || currentUser?.role === 'CUSTOMER';
+
+  const logoHref = isAdmin ? '/admin/dashboard' : isCashier ? '/pos' : '/catalog';
 
   return (
-    <>
-      <header className="sticky top-0 z-40 glass-panel border-b border-pos-border/70 px-4 sm:px-6 py-2.5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-          {/* Brand Logo & Live Store Status */}
-          <div className="flex items-center space-x-3">
-            <Link href="/" className="flex items-center space-x-2.5 group">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500 via-teal-500 to-indigo-600 flex items-center justify-center text-slate-950 font-bold shadow-glow group-hover:scale-105 transition-transform">
-                <Store className="w-4 h-4 text-white" />
-              </div>
-              <div className="flex flex-col">
-                <div className="flex items-center space-x-1.5">
-                  <span className="text-base font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-emerald-400 bg-clip-text text-transparent">
-                    AuraPOS
-                  </span>
-                  <span className="hidden md:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                    ONLINE
-                  </span>
-                </div>
-              </div>
-            </Link>
-
-            {/* Store Clock & Network Health */}
-            <div className="hidden lg:flex items-center space-x-2 pl-3 border-l border-pos-border/60 text-xs text-slate-400 font-mono">
-              <Clock className="w-3.5 h-3.5 text-slate-500" />
-              <span>{time || '00:00:00'}</span>
-              <span className="flex items-center text-emerald-400 text-[11px] space-x-1 pl-2">
-                <Wifi className="w-3 h-3 animate-pulse" />
-                <span className="text-[10px]">Cloud Sync</span>
-              </span>
-            </div>
+    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 sm:px-8 py-3 shadow-sm">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 sm:gap-6">
+        {/* Store Logo */}
+        <Link href={logoHref} className="flex items-center space-x-2.5 shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold shadow-sm">
+            <Store className="w-5 h-5" />
           </div>
+          <div className="flex flex-col">
+            <span className="text-base font-bold text-slate-900 tracking-tight leading-none">AuraStore</span>
+            <span className="text-[10px] text-blue-600 font-semibold tracking-wide uppercase mt-0.5">
+              {isAdmin ? 'Admin Console' : isCashier ? 'Terminal POS Kasir' : 'Marketplace Online'}
+            </span>
+          </div>
+        </Link>
 
-          {/* Navigation Items */}
-          <nav className="flex items-center space-x-1 sm:space-x-2">
-            {navLinks.map((link) => {
-              const Icon = link.icon;
-              const isActive = pathname === link.href;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`btn-tactile flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                    isActive
-                      ? link.activeColor
-                      : 'border-transparent text-slate-400 hover:text-white hover:bg-pos-surface'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{link.label}</span>
-                </Link>
-              );
-            })}
-
-            {/* Keyboard Shortcuts Trigger Button */}
-            <button
-              onClick={() => setShortcutsOpen(true)}
-              title="Keyboard Shortcuts Guide"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-pos-surface border border-transparent hover:border-pos-border transition-colors hidden md:block"
-            >
-              <Keyboard className="w-4 h-4" />
-            </button>
-
-            {/* User Session Badge / Sign In */}
-            {currentUser ? (
-              <div className="flex items-center space-x-2 pl-2 border-l border-pos-border/60">
-                <div className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-xs font-bold font-mono">
-                  {currentUser.role?.[0] || 'U'}
-                </div>
-                <div className="hidden xl:block text-left text-[11px] leading-tight">
-                  <div className="font-semibold text-white truncate max-w-[90px]">{currentUser.name || 'User'}</div>
-                  <div className="text-[9px] font-mono text-emerald-400">{currentUser.role}</div>
-                </div>
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                className="btn-tactile px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-glow ml-1"
-              >
-                Sign In
-              </Link>
-            )}
-          </nav>
-        </div>
-      </header>
-
-      {/* KEYBOARD SHORTCUTS MODAL */}
-      {shortcutsOpen && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel p-6 rounded-2xl max-w-sm w-full space-y-4 border-pos-border">
-            <div className="flex justify-between items-center pb-2 border-b border-pos-border">
-              <div className="flex items-center space-x-2 text-white font-bold text-sm">
-                <Keyboard className="w-4 h-4 text-emerald-400" />
-                <span>Cashier Keyboard Shortcuts</span>
-              </div>
+        {/* Marketplace Search Bar (Only shown for Customers / Public / Admin) */}
+        {!isCashier && (
+          <form onSubmit={handleHeaderSearchSubmit} className="hidden md:flex flex-1 max-w-xl relative">
+            <div className="relative w-full flex items-center">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+              <input
+                type="text"
+                value={headerSearch}
+                onChange={(e) => setHeaderSearch(e.target.value)}
+                placeholder="Cari kopi artisan, pastry hangat, paket bundling..."
+                className="w-full bg-slate-50 border border-slate-200 focus:border-blue-600 focus:bg-white rounded-lg pl-10 pr-20 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition-all"
+              />
               <button
-                onClick={() => setShortcutsOpen(false)}
-                className="text-slate-400 hover:text-white"
+                type="submit"
+                className="absolute right-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition-colors"
               >
-                <X className="w-4 h-4" />
+                Cari
               </button>
             </div>
+          </form>
+        )}
 
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between items-center p-2 rounded bg-pos-surface border border-pos-border">
-                <span className="text-slate-300">Focus Barcode / SKU Scanner</span>
-                <kbd className="px-2 py-0.5 rounded bg-pos-card border border-pos-border font-mono text-[10px] text-emerald-400">
-                  F2
-                </kbd>
-              </div>
-              <div className="flex justify-between items-center p-2 rounded bg-pos-surface border border-pos-border">
-                <span className="text-slate-300">Open Payment Tender Modal</span>
-                <kbd className="px-2 py-0.5 rounded bg-pos-card border border-pos-border font-mono text-[10px] text-emerald-400">
-                  F4
-                </kbd>
-              </div>
-              <div className="flex justify-between items-center p-2 rounded bg-pos-surface border border-pos-border">
-                <span className="text-slate-300">Clear Current Ticket Cart</span>
-                <kbd className="px-2 py-0.5 rounded bg-pos-card border border-pos-border font-mono text-[10px] text-red-400">
-                  Esc
-                </kbd>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShortcutsOpen(false)}
-              className="w-full py-2 rounded-xl bg-pos-surface border border-pos-border hover:bg-pos-card text-white text-xs font-semibold"
-            >
-              Got it
-            </button>
+        {/* Cashier Specific Title Banner */}
+        {isCashier && (
+          <div className="hidden sm:flex items-center space-x-2 text-xs text-slate-600">
+            <span className="px-2.5 py-1 rounded bg-blue-50 border border-blue-200 text-blue-700 font-semibold">
+              Mode Terminal Kasir Aktif
+            </span>
           </div>
+        )}
+
+        {/* Right Navigation & User Actions */}
+        <div className="flex items-center space-x-2 sm:space-x-3">
+          {/* Admin Navigation */}
+          {isAdmin && (
+            <>
+              <Link
+                href="/admin/dashboard"
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                  pathname === '/admin/dashboard'
+                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                <span className="hidden lg:inline">Admin Dashboard</span>
+              </Link>
+              <Link
+                href="/pos"
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                  pathname === '/pos'
+                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <Terminal className="w-3.5 h-3.5 text-blue-600" />
+                <span className="hidden lg:inline">Terminal POS</span>
+              </Link>
+              <Link
+                href="/catalog"
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                  pathname.startsWith('/catalog')
+                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <ShoppingBag className="w-3.5 h-3.5 text-blue-600" />
+                <span className="hidden sm:inline">Lihat Toko</span>
+              </Link>
+            </>
+          )}
+
+          {/* Cashier Navigation: ONLY Terminal POS */}
+          {isCashier && (
+            <Link
+              href="/pos"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 transition-colors"
+            >
+              <Terminal className="w-3.5 h-3.5 text-blue-600" />
+              <span>Terminal POS</span>
+            </Link>
+          )}
+
+          {/* Customer & Public Navigation: ONLY Toko Online */}
+          {isCustomerOrPublic && (
+            <Link
+              href="/catalog"
+              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                pathname.startsWith('/catalog')
+                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <ShoppingBag className="w-3.5 h-3.5 text-blue-600" />
+              <span>Katalog Belanja</span>
+            </Link>
+          )}
+
+          {/* User Profile & Logout */}
+          {currentUser ? (
+            <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-300 text-slate-800 flex items-center justify-center text-xs font-bold font-mono">
+                  {currentUser.role?.[0] || 'U'}
+                </div>
+                <div className="hidden xl:block text-left text-xs leading-tight">
+                  <div className="font-semibold text-slate-800 truncate max-w-[110px]">
+                    {currentUser.name || 'Pengguna'}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-mono">{currentUser.role}</div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                title="Keluar dari akun"
+                className="p-2 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 border border-slate-200 transition-colors flex items-center space-x-1"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-xs font-medium">Keluar</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
+              <Link
+                href="/login"
+                className="px-4 py-1.5 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-sm"
+              >
+                Masuk
+              </Link>
+            </div>
+          )}
         </div>
-      )}
-    </>
+      </div>
+    </header>
   );
 }

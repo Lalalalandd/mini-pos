@@ -5,33 +5,24 @@ const config: Config = {
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
-    '../../packages/shared/src/**/*.{js,ts,jsx,tsx}',
   ],
-  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        pos: {
-          bg: '#0B0F17',
-          surface: '#131B2A',
-          card: '#1B2436',
-          border: '#2A364F',
-          primary: '#10B981',      // Emerald vibrancy
-          primaryHover: '#059669',
-          accent: '#6366F1',       // Indigo highlight
-          warning: '#F59E0B',
-          danger: '#EF4444',
-          muted: '#94A3B8',
-          text: '#F8FAFC',
+        brand: {
+          50: '#eff6ff',
+          100: '#dbeafe',
+          200: '#bfdbfe',
+          500: '#3b82f6',
+          600: '#2563eb', // Primary
+          700: '#1d4ed8', // Primary Hover
+          800: '#1e40af',
+          900: '#1e3a8a',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Menlo', 'monospace'],
-      },
-      boxShadow: {
-        glow: '0 0 20px -5px rgba(16, 185, 129, 0.3)',
-        'glow-accent': '0 0 20px -5px rgba(99, 102, 241, 0.3)',
+        sans: ['var(--font-plus-jakarta-sans)', 'Plus Jakarta Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
     },
   },
