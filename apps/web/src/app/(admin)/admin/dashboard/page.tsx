@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   TrendingUp,
   CreditCard,
@@ -19,60 +20,96 @@ import {
   Database,
   X,
   Check,
+  Store,
+  FileText,
+  Users,
+  Settings,
+  Download,
+  BarChart3,
+  Calendar,
+  DollarSign,
+  Receipt,
+  ChevronRight,
 } from 'lucide-react';
 import { restFetch } from '@/lib/api-client';
 
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'INVENTORY' | 'TRANSACTIONS' | 'QUEUES'>('OVERVIEW');
+  const [navSection, setNavSection] = useState<'OVERVIEW' | 'INVENTORY' | 'ORDERS' | 'QUEUES'>('OVERVIEW');
   const [loading, setLoading] = useState(false);
   const [restockModalOpen, setRestockModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [addedStockQty, setAddedStockQty] = useState(25);
+  const [restockQty, setRestockQty] = useState(20);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [metrics, setMetrics] = useState({
     todaySales: 3480000,
+    yesterdaySales: 2940000,
     todayTransactions: 58,
-    lowStockItemsCount: 2,
-    activeWorkersCount: 2,
-    recentOrders: [
+    avgTicketValue: 60000,
+    lowStockCount: 2,
+    orders: [
       {
         id: 'ord-101',
         orderNumber: 'POS-982144',
         finalAmount: 114000,
         paymentMethod: 'QRIS',
-        status: 'COMPLETED',
-        customerName: 'POS Kasir 01',
-        createdAt: '19:12:40',
+        status: 'PAID',
+        source: 'POS',
+        customerName: 'Meja 04 - Dine In',
+        time: '19:12',
       },
       {
         id: 'ord-102',
         orderNumber: 'POS-982145',
         finalAmount: 62000,
         paymentMethod: 'CASH',
-        status: 'COMPLETED',
-        customerName: 'Ahmad M.',
-        createdAt: '18:55:12',
+        status: 'PAID',
+        source: 'POS',
+        customerName: 'Ahmad M. (Walk-in)',
+        time: '18:55',
       },
       {
         id: 'ord-103',
-        orderNumber: 'ORD-982146',
+        orderNumber: 'WEB-982146',
         finalAmount: 185000,
         paymentMethod: 'DEBIT_CARD',
-        status: 'COMPLETED',
-        customerName: 'Online Web Order',
-        createdAt: '18:30:05',
+        status: 'PROCESSING',
+        source: 'ONLINE',
+        customerName: 'Sarah K. (Delivery)',
+        time: '18:30',
+      },
+      {
+        id: 'ord-104',
+        orderNumber: 'POS-982147',
+        finalAmount: 48000,
+        paymentMethod: 'QRIS',
+        status: 'PAID',
+        source: 'POS',
+        customerName: 'Budi Santoso',
+        time: '18:14',
+      },
+      {
+        id: 'ord-105',
+        orderNumber: 'POS-982148',
+        finalAmount: 76000,
+        paymentMethod: 'CASH',
+        status: 'PAID',
+        source: 'POS',
+        customerName: 'Takeaway Kasir',
+        time: '17:48',
       },
     ],
     products: [
-      { id: 'p-1', name: 'Single Origin Espresso', sku: 'BEV-ESP-001', stock: 120, minStockAlert: 15, price: 28000 },
-      { id: 'p-2', name: 'Iced Oat Caramel Macchiato', sku: 'BEV-MAC-002', stock: 85, minStockAlert: 10, price: 38000 },
-      { id: 'p-3', name: 'Butter Croissant Premium', sku: 'BAK-CRS-001', stock: 6, minStockAlert: 8, price: 24000 },
-      { id: 'p-4', name: 'Smoked Beef Brioche Sandwich', sku: 'MEA-SND-001', stock: 4, minStockAlert: 5, price: 48000 },
-      { id: 'p-5', name: 'Ceremonial Uji Matcha Latte', sku: 'BEV-MTC-003', stock: 90, minStockAlert: 10, price: 35000 },
+      { id: 'p-1', name: 'Single Origin Espresso', sku: 'BEV-ESP-001', stock: 120, minAlert: 15, price: 28000, category: 'Beverage' },
+      { id: 'p-2', name: 'Iced Oat Caramel Macchiato', sku: 'BEV-MAC-002', stock: 85, minAlert: 10, price: 38000, category: 'Beverage' },
+      { id: 'p-3', name: 'Butter Croissant Premium French', sku: 'BAK-CRS-001', stock: 5, minAlert: 8, price: 24000, category: 'Bakery' },
+      { id: 'p-4', name: 'Smoked Beef Brioche Sandwich', sku: 'MEA-SND-001', stock: 3, minAlert: 5, price: 48000, category: 'Meals' },
+      { id: 'p-5', name: 'Ceremonial Uji Matcha Latte', sku: 'BEV-MTC-003', stock: 90, minAlert: 10, price: 35000, category: 'Beverage' },
+      { id: 'p-6', name: 'Chocochip Artisan Cookie', sku: 'SNK-CKI-001', stock: 45, minAlert: 10, price: 18000, category: 'Snacks' },
     ],
   });
 
-  const fetchDashboardData = async () => {
+  const loadMetrics = async () => {
     setLoading(true);
     try {
       const data = await restFetch<any>('/orders/dashboard/metrics');
@@ -81,8 +118,6 @@ export default function AdminDashboardPage() {
           ...prev,
           todaySales: data.todaySales || prev.todaySales,
           todayTransactions: data.todayTransactions || prev.todayTransactions,
-          lowStockItemsCount: data.lowStockItemsCount || prev.lowStockItemsCount,
-          recentOrders: data.recentOrders?.length ? data.recentOrders : prev.recentOrders,
         }));
       }
     } catch {}
@@ -92,435 +127,450 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
-    fetchDashboardData();
+    loadMetrics();
   }, []);
 
-  const handleRestockSubmit = (e: React.FormEvent) => {
+  const handleRestock = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct) return;
 
     setMetrics((prev) => ({
       ...prev,
       products: prev.products.map((p) =>
-        p.id === selectedProduct.id ? { ...p, stock: p.stock + addedStockQty } : p,
+        p.id === selectedProduct.id ? { ...p, stock: p.stock + Number(restockQty) } : p,
       ),
     }));
 
-    alert(`Berhasil menambahkan ${addedStockQty} stok untuk ${selectedProduct.name}!`);
+    alert(`Stok untuk "${selectedProduct.name}" berhasil ditambahkan sebanyak ${restockQty} unit.`);
     setRestockModalOpen(false);
   };
 
+  const filteredProducts = metrics.products.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.sku.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+
   return (
-    <div className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-8 space-y-7">
-      {/* ============================================================ */}
-      {/* HEADER & CONTROLS */}
-      {/* ============================================================ */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-pos-border/70 pb-5">
-        <div>
-          <div className="inline-flex items-center space-x-2 text-xs font-semibold text-amber-400 mb-1">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Role: Super Administrator (Full Control)</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Pusat Kendali & Operasional Toko
-          </h1>
+    <div className="min-h-screen bg-[#09090b] flex flex-col text-zinc-100">
+      {/* Top Breadcrumb & Actions Bar */}
+      <div className="border-b border-zinc-800 bg-[#121215] px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-2 text-xs text-zinc-400">
+          <Store className="w-4 h-4 text-emerald-400" />
+          <span>AuraPOS</span>
+          <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+          <span className="text-zinc-200 font-semibold">Admin Operations</span>
+          <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+          <span className="text-zinc-400 font-mono">Store #JKT-089</span>
         </div>
 
         <div className="flex items-center space-x-2.5">
           <button
-            onClick={fetchDashboardData}
+            onClick={loadMetrics}
             disabled={loading}
-            className="btn-tactile glass-panel px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white flex items-center space-x-2"
+            className="btn-secondary px-3 py-1.5 rounded-md text-xs flex items-center space-x-1.5"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-amber-400' : ''}`} />
-            <span>Refresh Real-time</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Sync Data</span>
+          </button>
+          <button
+            onClick={() => alert('Exporting data CSV report...')}
+            className="btn-secondary px-3 py-1.5 rounded-md text-xs flex items-center space-x-1.5"
+          >
+            <Download className="w-3.5 h-3.5 text-zinc-400" />
+            <span>Export CSV</span>
           </button>
         </div>
       </div>
 
-      {/* ============================================================ */}
-      {/* STAT CARDS ROW */}
-      {/* ============================================================ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Today Revenue */}
-        <div className="glass-card p-5 rounded-2xl space-y-2.5 border-emerald-500/30 relative overflow-hidden">
-          <div className="flex justify-between items-center text-xs text-slate-400">
-            <span>Pendapatan Kotor Hari Ini</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4" />
+      {/* Main Workspace Layout (Sidebar + Content) */}
+      <div className="flex-1 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 p-6">
+        {/* Left Navigation Column (3 Cols) */}
+        <div className="lg:col-span-3 space-y-4">
+          <div className="bg-[#121215] border border-zinc-800 rounded-lg p-3 space-y-1">
+            <div className="px-3 py-2 text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+              Menu Navigasi
             </div>
+            <button
+              onClick={() => setNavSection('OVERVIEW')}
+              className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium flex items-center space-x-2.5 transition-all ${
+                navSection === 'OVERVIEW'
+                  ? 'bg-zinc-800 text-white font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4 text-emerald-400" />
+              <span>Ringkasan & Metrik</span>
+            </button>
+            <button
+              onClick={() => setNavSection('INVENTORY')}
+              className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium flex items-center justify-between transition-all ${
+                navSection === 'INVENTORY'
+                  ? 'bg-zinc-800 text-white font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+              }`}
+            >
+              <div className="flex items-center space-x-2.5">
+                <Package className="w-4 h-4 text-indigo-400" />
+                <span>Inventori Produk</span>
+              </div>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
+                {metrics.products.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setNavSection('ORDERS')}
+              className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium flex items-center space-x-2.5 transition-all ${
+                navSection === 'ORDERS'
+                  ? 'bg-zinc-800 text-white font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+              }`}
+            >
+              <Receipt className="w-4 h-4 text-amber-400" />
+              <span>Daftar Transaksi</span>
+            </button>
+            <button
+              onClick={() => setNavSection('QUEUES')}
+              className={`w-full text-left px-3 py-2 rounded-md text-xs font-medium flex items-center space-x-2.5 transition-all ${
+                navSection === 'QUEUES'
+                  ? 'bg-zinc-800 text-white font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+              }`}
+            >
+              <Layers className="w-4 h-4 text-blue-400" />
+              <span>BullMQ Queue Health</span>
+            </button>
           </div>
-          <div className="text-2xl font-black text-white font-mono">
-            Rp {metrics.todaySales.toLocaleString('id-ID')}
-          </div>
-          <div className="text-[11px] text-emerald-400 font-semibold flex items-center space-x-1">
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>+18.4% dibandingkan kemarin</span>
+
+          {/* Quick Terminal Launcher Card */}
+          <div className="bg-[#121215] border border-zinc-800 rounded-lg p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-white">Kasir Cepat</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60">
+                Ready
+              </span>
+            </div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Buka terminal kasir fisik untuk memproses transaksi POS langsung di kasir.
+            </p>
+            <Link
+              href="/pos"
+              className="btn-primary w-full py-2 rounded-md text-xs flex items-center justify-center space-x-1.5"
+            >
+              <span>Buka Terminal Kasir</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
 
-        {/* Card 2: Total Transactions */}
-        <div className="glass-card p-5 rounded-2xl space-y-2.5 border-indigo-500/30">
-          <div className="flex justify-between items-center text-xs text-slate-400">
-            <span>Total Transaksi Selesai</span>
-            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
-              <CreditCard className="w-4 h-4" />
+        {/* Right Content Area (9 Cols) */}
+        <div className="lg:col-span-9 space-y-6">
+          {/* Top 4 KPI Metrics in Crisp SaaS Density */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="bg-[#121215] border border-zinc-800 rounded-lg p-4 space-y-1">
+              <div className="flex justify-between items-center text-xs text-zinc-400">
+                <span>Omzet Hari Ini</span>
+                <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <div className="text-xl font-bold font-mono text-white tabular-nums">
+                Rp {metrics.todaySales.toLocaleString('id-ID')}
+              </div>
+              <div className="text-[11px] text-emerald-400 flex items-center space-x-1">
+                <span>+18.4% vs kemarin</span>
+              </div>
+            </div>
+
+            <div className="bg-[#121215] border border-zinc-800 rounded-lg p-4 space-y-1">
+              <div className="flex justify-between items-center text-xs text-zinc-400">
+                <span>Total Transaksi</span>
+                <CreditCard className="w-3.5 h-3.5 text-indigo-400" />
+              </div>
+              <div className="text-xl font-bold font-mono text-white tabular-nums">
+                {metrics.todayTransactions}
+              </div>
+              <div className="text-[11px] text-zinc-400">
+                Rata-rata: Rp {metrics.avgTicketValue.toLocaleString('id-ID')}
+              </div>
+            </div>
+
+            <div className="bg-[#121215] border border-zinc-800 rounded-lg p-4 space-y-1">
+              <div className="flex justify-between items-center text-xs text-zinc-400">
+                <span>Stok Kritis</span>
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+              </div>
+              <div className="text-xl font-bold font-mono text-amber-400 tabular-nums">
+                {metrics.products.filter((p) => p.stock <= p.minAlert).length} Menu
+              </div>
+              <div className="text-[11px] text-amber-300">
+                Perlu restock segera
+              </div>
+            </div>
+
+            <div className="bg-[#121215] border border-zinc-800 rounded-lg p-4 space-y-1">
+              <div className="flex justify-between items-center text-xs text-zinc-400">
+                <span>BullMQ Workers</span>
+                <Cpu className="w-3.5 h-3.5 text-blue-400" />
+              </div>
+              <div className="text-xl font-bold font-mono text-blue-400">
+                Cluster Normal
+              </div>
+              <div className="text-[11px] text-emerald-400 flex items-center space-x-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                <span>2 Queues Active</span>
+              </div>
             </div>
           </div>
-          <div className="text-2xl font-black text-white font-mono">{metrics.todayTransactions} Transaksi</div>
-          <div className="text-[11px] text-indigo-400 font-semibold">POS Terminal & Toko Online</div>
-        </div>
 
-        {/* Card 3: Low Stock Warnings */}
-        <div className="glass-card p-5 rounded-2xl space-y-2.5 border-amber-500/30">
-          <div className="flex justify-between items-center text-xs text-slate-400">
-            <span>Peringatan Stok Kritis</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4" />
+          {/* SECTION 1: OVERVIEW TAB */}
+          {navSection === 'OVERVIEW' && (
+            <div className="space-y-5">
+              {/* Transactions Table */}
+              <div className="bg-[#121215] border border-zinc-800 rounded-lg overflow-hidden">
+                <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+                  <div className="text-xs font-bold text-white">Transaksi Kasir Terkini</div>
+                  <span className="text-[11px] text-zinc-500 font-mono">Live Feed</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-zinc-900/60 text-zinc-400 border-b border-zinc-800 font-medium">
+                      <tr>
+                        <th className="py-2.5 px-4">No. Transaksi</th>
+                        <th className="py-2.5 px-4">Pelanggan / Meja</th>
+                        <th className="py-2.5 px-4">Kanal</th>
+                        <th className="py-2.5 px-4">Metode</th>
+                        <th className="py-2.5 px-4 text-right">Nominal</th>
+                        <th className="py-2.5 px-4 text-right">Waktu</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/70 text-zinc-300">
+                      {metrics.orders.map((ord) => (
+                        <tr key={ord.id} className="hover:bg-zinc-900/40">
+                          <td className="py-2.5 px-4 font-mono font-medium text-zinc-100">{ord.orderNumber}</td>
+                          <td className="py-2.5 px-4">{ord.customerName}</td>
+                          <td className="py-2.5 px-4">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-300">
+                              {ord.source}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-4">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-900 border border-zinc-800 text-zinc-400">
+                              {ord.paymentMethod}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-mono font-bold text-white">
+                            Rp {ord.finalAmount.toLocaleString('id-ID')}
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-mono text-zinc-500 text-[11px]">{ord.time}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="text-2xl font-black text-amber-400 font-mono">
-            {metrics.products.filter((p) => p.stock <= p.minStockAlert).length} Menu
-          </div>
-          <div className="text-[11px] text-amber-300 font-semibold">Perlu restock segera</div>
-        </div>
+          )}
 
-        {/* Card 4: BullMQ Workers */}
-        <div className="glass-card p-5 rounded-2xl space-y-2.5 border-blue-500/30">
-          <div className="flex justify-between items-center text-xs text-slate-400">
-            <span>BullMQ Workers & Redis</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
-              <Layers className="w-4 h-4" />
+          {/* SECTION 2: INVENTORY TAB */}
+          {navSection === 'INVENTORY' && (
+            <div className="bg-[#121215] border border-zinc-800 rounded-lg overflow-hidden space-y-4 p-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-white">Katalog & Manajemen Stok</h3>
+                  <p className="text-xs text-zinc-500">Kelola kuantitas stok produk fisik dan trigger restock.</p>
+                </div>
+
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Cari SKU atau nama produk..."
+                    className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-md pl-8 pr-3 py-1.5 text-xs text-white outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto border border-zinc-800 rounded-lg">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-zinc-900/60 text-zinc-400 border-b border-zinc-800 font-medium">
+                    <tr>
+                      <th className="py-2.5 px-3.5">Nama Produk</th>
+                      <th className="py-2.5 px-3.5">SKU</th>
+                      <th className="py-2.5 px-3.5">Kategori</th>
+                      <th className="py-2.5 px-3.5">Harga</th>
+                      <th className="py-2.5 px-3.5 text-center">Status Stok</th>
+                      <th className="py-2.5 px-3.5 text-right">Kuantitas</th>
+                      <th className="py-2.5 px-3.5 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/70 text-zinc-300">
+                    {filteredProducts.map((p) => {
+                      const isLow = p.stock <= p.minAlert;
+                      return (
+                        <tr key={p.id} className="hover:bg-zinc-900/40">
+                          <td className="py-2.5 px-3.5 font-medium text-white">{p.name}</td>
+                          <td className="py-2.5 px-3.5 font-mono text-zinc-400">{p.sku}</td>
+                          <td className="py-2.5 px-3.5 text-zinc-400">{p.category}</td>
+                          <td className="py-2.5 px-3.5 font-mono">Rp {p.price.toLocaleString('id-ID')}</td>
+                          <td className="py-2.5 px-3.5 text-center">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                isLow
+                                  ? 'bg-amber-950/60 text-amber-400 border border-amber-800/50'
+                                  : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50'
+                              }`}
+                            >
+                              {isLow ? 'Stok Kritis' : 'Normal'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3.5 text-right font-mono font-bold text-white">
+                            {p.stock} pcs
+                          </td>
+                          <td className="py-2.5 px-3.5 text-right">
+                            <button
+                              onClick={() => {
+                                setSelectedProduct(p);
+                                setRestockModalOpen(true);
+                              }}
+                              className="btn-secondary px-2.5 py-1 rounded text-[11px] font-semibold"
+                            >
+                              + Restock
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-          <div className="text-2xl font-black text-blue-400 font-mono">Cluster Aktif</div>
-          <div className="text-[11px] text-emerald-400 font-semibold flex items-center space-x-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block mr-1" />
-            <span>2 Antrean Berjalan Normal</span>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {/* ============================================================ */}
-      {/* NAVIGATION TABS */}
-      {/* ============================================================ */}
-      <div className="flex space-x-2 border-b border-pos-border/70 pb-2">
-        <button
-          onClick={() => setActiveTab('OVERVIEW')}
-          className={`btn-tactile px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeTab === 'OVERVIEW'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'text-slate-400 hover:text-white hover:bg-pos-surface'
-          }`}
-        >
-          Ringkasan & Penjualan
-        </button>
-        <button
-          onClick={() => setActiveTab('INVENTORY')}
-          className={`btn-tactile px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeTab === 'INVENTORY'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'text-slate-400 hover:text-white hover:bg-pos-surface'
-          }`}
-        >
-          Inventori & Stok ({metrics.products.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('TRANSACTIONS')}
-          className={`btn-tactile px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeTab === 'TRANSACTIONS'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'text-slate-400 hover:text-white hover:bg-pos-surface'
-          }`}
-        >
-          Riwayat Transaksi
-        </button>
-        <button
-          onClick={() => setActiveTab('QUEUES')}
-          className={`btn-tactile px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeTab === 'QUEUES'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'text-slate-400 hover:text-white hover:bg-pos-surface'
-          }`}
-        >
-          BullMQ & Health Check
-        </button>
-      </div>
+          {/* SECTION 3: ORDERS TAB */}
+          {navSection === 'ORDERS' && (
+            <div className="bg-[#121215] border border-zinc-800 rounded-lg p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <div className="text-xs font-bold text-white">Riwayat Seluruh Pesanan</div>
+                <span className="text-xs text-zinc-400 font-mono">Total {metrics.orders.length} order tercatat</span>
+              </div>
 
-      {/* ============================================================ */}
-      {/* TAB CONTENT 1: OVERVIEW */}
-      {/* ============================================================ */}
-      {activeTab === 'OVERVIEW' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8 glass-panel p-6 rounded-2xl space-y-4">
-            <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-              <Activity className="w-4 h-4 text-emerald-400" />
-              <span>Aktivitas Transaksi Terkini</span>
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="text-slate-400 border-b border-pos-border/70">
-                  <tr>
-                    <th className="pb-3">No. Tiket</th>
-                    <th className="pb-3">Customer / Kasir</th>
-                    <th className="pb-3">Metode</th>
-                    <th className="pb-3 text-right">Total Bayar</th>
-                    <th className="pb-3 text-right">Waktu</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-pos-border/40 text-slate-300">
-                  {metrics.recentOrders.map((ord: any) => (
-                    <tr key={ord.id} className="hover:bg-pos-surface/50">
-                      <td className="py-3 font-mono text-emerald-400 font-bold">{ord.orderNumber}</td>
-                      <td className="py-3">{ord.customerName}</td>
-                      <td className="py-3">
-                        <span className="px-2 py-0.5 rounded bg-pos-surface border border-pos-border text-[10px] font-mono">
+              <div className="space-y-2">
+                {metrics.orders.map((ord) => (
+                  <div
+                    key={ord.id}
+                    className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-between text-xs"
+                  >
+                    <div className="space-y-0.5">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono font-bold text-white">{ord.orderNumber}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[10px] font-mono">
                           {ord.paymentMethod}
                         </span>
-                      </td>
-                      <td className="py-3 text-right font-mono text-white font-bold">
-                        Rp {ord.finalAmount?.toLocaleString('id-ID')}
-                      </td>
-                      <td className="py-3 text-right font-mono text-slate-500 text-[11px]">{ord.createdAt}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="lg:col-span-4 glass-panel p-6 rounded-2xl space-y-4">
-            <h3 className="text-sm font-bold text-white">Distribusi Pembayaran</h3>
-            <div className="space-y-3 pt-2">
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-300">QRIS Instan</span>
-                  <span className="font-mono text-indigo-400 font-bold">54%</span>
-                </div>
-                <div className="h-2 rounded-full bg-pos-surface overflow-hidden">
-                  <div className="h-full bg-indigo-500 rounded-full w-[54%]" />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-300">Tunai (Cash)</span>
-                  <span className="font-mono text-emerald-400 font-bold">32%</span>
-                </div>
-                <div className="h-2 rounded-full bg-pos-surface overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full w-[32%]" />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-300">Debit / EDC</span>
-                  <span className="font-mono text-amber-400 font-bold">14%</span>
-                </div>
-                <div className="h-2 rounded-full bg-pos-surface overflow-hidden">
-                  <div className="h-full bg-amber-500 rounded-full w-[14%]" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* TAB CONTENT 2: INVENTORY & RESTOCK */}
-      {/* ============================================================ */}
-      {activeTab === 'INVENTORY' && (
-        <div className="glass-panel p-6 rounded-2xl space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-base font-bold text-white flex items-center space-x-2">
-              <Package className="w-4 h-4 text-amber-400" />
-              <span>Status Inventori & Stok Produk</span>
-            </h3>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="text-slate-400 border-b border-pos-border/70">
-                <tr>
-                  <th className="pb-3">Nama Produk</th>
-                  <th className="pb-3">SKU</th>
-                  <th className="pb-3">Harga</th>
-                  <th className="pb-3 text-center">Status Stok</th>
-                  <th className="pb-3 text-right">Sisa Stok</th>
-                  <th className="pb-3 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-pos-border/40 text-slate-300">
-                {metrics.products.map((p) => {
-                  const isLow = p.stock <= p.minStockAlert;
-                  return (
-                    <tr key={p.id} className="hover:bg-pos-surface/40">
-                      <td className="py-3 font-bold text-white">{p.name}</td>
-                      <td className="py-3 font-mono text-slate-400">{p.sku}</td>
-                      <td className="py-3 font-mono">Rp {p.price.toLocaleString('id-ID')}</td>
-                      <td className="py-3 text-center">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            isLow
-                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                              : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                          }`}
-                        >
-                          {isLow ? '⚠️ Stok Kritis' : '✅ Aman'}
-                        </span>
-                      </td>
-                      <td className="py-3 text-right font-mono font-bold text-white">
-                        {p.stock} pcs
-                      </td>
-                      <td className="py-3 text-right">
-                        <button
-                          onClick={() => {
-                            setSelectedProduct(p);
-                            setRestockModalOpen(true);
-                          }}
-                          className="btn-tactile px-3 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 text-xs font-bold transition-colors"
-                        >
-                          + Tambah Stok
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* TAB CONTENT 3: TRANSACTIONS */}
-      {/* ============================================================ */}
-      {activeTab === 'TRANSACTIONS' && (
-        <div className="glass-panel p-6 rounded-2xl space-y-4">
-          <h3 className="text-base font-bold text-white">Log Transaksi Lengkap</h3>
-          <div className="space-y-3">
-            {metrics.recentOrders.map((ord: any) => (
-              <div
-                key={ord.id}
-                className="p-4 rounded-xl bg-pos-surface border border-pos-border/70 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"
-              >
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <span className="font-mono font-bold text-emerald-400 text-sm">{ord.orderNumber}</span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">
-                      {ord.status}
-                    </span>
+                      </div>
+                      <div className="text-[11px] text-zinc-500">{ord.customerName} • Pukul {ord.time}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono font-bold text-white text-sm">
+                        Rp {ord.finalAmount.toLocaleString('id-ID')}
+                      </div>
+                      <span className="text-[10px] text-emerald-400 font-semibold">{ord.status}</span>
+                    </div>
                   </div>
-                  <div className="text-xs text-slate-400 mt-1">
-                    Kasir/Pelanggan: <span className="text-white">{ord.customerName}</span> • Metode: {ord.paymentMethod}
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* SECTION 4: QUEUES TAB */}
+          {navSection === 'QUEUES' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-[#121215] border border-zinc-800 rounded-lg p-5 space-y-3">
+                <div className="flex items-center space-x-2 text-xs font-bold text-white">
+                  <Cpu className="w-4 h-4 text-emerald-400" />
+                  <span>receipt-queue (BullMQ)</span>
+                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Worker untuk proses kompilasi invoice digital, PDF receipt, dan push notifikasi email.
+                </p>
+                <div className="p-3 rounded bg-zinc-900 border border-zinc-800 font-mono text-xs space-y-1">
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Status:</span>
+                    <span className="text-emerald-400 font-bold">READY / WAITING</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Broker:</span>
+                    <span className="text-white">Redis 7 Alpine</span>
                   </div>
                 </div>
+              </div>
 
-                <div className="text-right sm:text-right">
-                  <div className="text-base font-black text-white font-mono">
-                    Rp {ord.finalAmount?.toLocaleString('id-ID')}
+              <div className="bg-[#121215] border border-zinc-800 rounded-lg p-5 space-y-3">
+                <div className="flex items-center space-x-2 text-xs font-bold text-white">
+                  <Database className="w-4 h-4 text-amber-400" />
+                  <span>stock-alert-queue (BullMQ)</span>
+                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Worker audit otomatis untuk mendeteksi pengurangan stok dan memicu restock alert.
+                </p>
+                <div className="p-3 rounded bg-zinc-900 border border-zinc-800 font-mono text-xs space-y-1">
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Status:</span>
+                    <span className="text-emerald-400 font-bold">MONITORING</span>
                   </div>
-                  <div className="text-[11px] text-slate-500 font-mono">{ord.createdAt}</div>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Alerts Triggered:</span>
+                    <span className="text-amber-400 font-bold">2 items</span>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* ============================================================ */}
-      {/* TAB CONTENT 4: BULLMQ & HEALTH */}
-      {/* ============================================================ */}
-      {activeTab === 'QUEUES' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div className="glass-panel p-6 rounded-2xl space-y-4 border-emerald-500/30">
-            <div className="flex items-center space-x-2 text-emerald-400 font-bold text-sm">
-              <Cpu className="w-4 h-4" />
-              <span>BullMQ Queue 1: `receipt-queue`</span>
-            </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Memproses pembuatan struk digital, PDF invoice, dan pengiriman notifikasi email transaksi secara asynchronous.
-            </p>
-            <div className="p-3 rounded-xl bg-pos-surface border border-pos-border font-mono text-xs space-y-1">
-              <div className="flex justify-between">
-                <span>Status Worker:</span>
-                <span className="text-emerald-400 font-bold">IDLE / READY</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Job Berhasil Hari Ini:</span>
-                <span className="text-white">58 jobs</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Job Gagal:</span>
-                <span className="text-emerald-400">0</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="glass-panel p-6 rounded-2xl space-y-4 border-amber-500/30">
-            <div className="flex items-center space-x-2 text-amber-400 font-bold text-sm">
-              <Database className="w-4 h-4" />
-              <span>BullMQ Queue 2: `stock-alert-queue`</span>
-            </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Memantau pengurangan stok real-time dan otomatis mengirimkan alert notifikasi saat produk mencapai batas minimum.
-            </p>
-            <div className="p-3 rounded-xl bg-pos-surface border border-pos-border font-mono text-xs space-y-1">
-              <div className="flex justify-between">
-                <span>Status Worker:</span>
-                <span className="text-emerald-400 font-bold">MONITORING</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Peringatan Terkirim:</span>
-                <span className="text-amber-400 font-bold">2 trigger</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Redis Engine:</span>
-                <span className="text-white">Redis 7 Alpine</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* RESTOCK PRODUCT MODAL */}
-      {/* ============================================================ */}
+      {/* RESTOCK MODAL */}
       {restockModalOpen && selectedProduct && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <form onSubmit={handleRestockSubmit} className="glass-panel p-6 rounded-3xl max-w-md w-full space-y-4 border-pos-border shadow-2xl">
-            <div className="flex justify-between items-center pb-2 border-b border-pos-border">
-              <h3 className="text-base font-bold text-white">Tambah Stok Produk</h3>
-              <button type="button" onClick={() => setRestockModalOpen(false)} className="text-slate-400 hover:text-white">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={handleRestock}
+            className="bg-[#121215] border border-zinc-800 p-6 rounded-lg max-w-sm w-full space-y-4 shadow-xl"
+          >
+            <div className="flex justify-between items-center pb-2 border-b border-zinc-800">
+              <span className="text-xs font-bold text-white">Restock Produk</span>
+              <button
+                type="button"
+                onClick={() => setRestockModalOpen(false)}
+                className="text-zinc-500 hover:text-white"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-3 rounded-xl bg-pos-surface border border-pos-border space-y-1">
-              <div className="text-xs font-bold text-white">{selectedProduct.name}</div>
-              <div className="text-[11px] font-mono text-slate-400">SKU: {selectedProduct.sku}</div>
-              <div className="text-xs font-mono text-emerald-400 font-bold pt-1">
-                Stok Saat Ini: {selectedProduct.stock} pcs
+            <div className="space-y-1 text-xs">
+              <div className="font-semibold text-white">{selectedProduct.name}</div>
+              <div className="text-[11px] font-mono text-zinc-400">SKU: {selectedProduct.sku}</div>
+              <div className="text-xs font-mono text-emerald-400 pt-1">
+                Stok Sekarang: {selectedProduct.stock} pcs
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-300">Jumlah Tambahan Stok</label>
+              <label className="text-xs font-medium text-zinc-300">Jumlah Penambahan Unit</label>
               <input
                 type="number"
                 min={1}
-                value={addedStockQty}
-                onChange={(e) => setAddedStockQty(Number(e.target.value))}
-                className="w-full bg-[#0B101D] border border-pos-border focus:border-amber-500 rounded-xl px-4 py-2.5 text-sm font-bold text-white font-mono outline-none"
+                value={restockQty}
+                onChange={(e) => setRestockQty(Number(e.target.value))}
+                className="w-full bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-md px-3 py-2 text-xs font-mono text-white outline-none"
               />
             </div>
 
             <button
               type="submit"
-              className="btn-tactile w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-glow flex items-center justify-center space-x-1.5"
+              className="btn-primary w-full py-2.5 rounded-md text-xs font-bold"
             >
-              <Check className="w-4 h-4" />
-              <span>Konfirmasi Tambah Stok</span>
+              Simpan & Perbarui Stok
             </button>
           </form>
         </div>
