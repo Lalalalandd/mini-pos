@@ -21,8 +21,12 @@ import { CatalogProduct } from '@/lib/marketplace-data';
 import {
   validateAndApplyPromo,
   getStoredTaxSettings,
+  getStoredPromos,
+  saveStoredPromos,
   TaxSettings,
 } from '@/lib/promo-tax-store';
+import { addStoredOrder, Order } from '@/lib/orders-store';
+import { restFetch } from '@/lib/api-client';
 
 export interface CartItem {
   product: CatalogProduct;
@@ -175,6 +179,95 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return <Coffee className="w-6 h-6 text-[#0b57d0]" />;
       default:
         return <Package className="w-6 h-6 text-[#0b57d0]" />;
+    }
+  };
+
+  const handleCheckout = async () => {
+    if (cart.length === 0) return;
+    setCheckoutSuccess(true);
+
+    try {
+      let customerName = 'Pelanggan Online (Web)';
+      let customerEmail = 'customer@aurapos.local';
+
+      if (typeof window !== 'undefined') {
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          try {
+            const u = JSON.parse(savedUser);
+            if (u.name) customerName = u.name;
+            if (u.email) customerEmail = u.email;
+          } catch {}
+        }
+      }
+
+      const orderNumber = `WEB-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
+
+      const newOrder: Order = {
+        id: `ord-${Date.now()}`,
+        orderNumber,
+        source: 'ONLINE',
+        status: 'COMPLETED',
+        totalAmount: rawSubtotal,
+        discountAmount: discountAmount,
+        finalAmount: finalTotal,
+        paymentMethod: 'ONLINE_VA',
+        paymentStatus: 'PAID',
+        customerName,
+        customerEmail,
+        createdAt: new Date().toISOString(),
+        items: cart.map((item, idx) => ({
+          id: `item-${Date.now()}-${idx}`,
+          productName: item.product.name,
+          productSku: item.product.sku || `SKU-${item.product.id}`,
+          price: item.product.price,
+          quantity: item.quantity,
+          discount: 0,
+          subtotal: item.product.price * item.quantity,
+        })),
+      };
+
+      // 1. Save to persistent unified orders store
+      addStoredOrder(newOrder);
+
+      // 2. Increment promo usage count if applied
+      if (promoCode.trim()) {
+        const allPromos = getStoredPromos();
+        const updated = allPromos.map((p) =>
+          p.code.toUpperCase() === promoCode.trim().toUpperCase()
+            ? { ...p, usageCount: (p.usageCount || 0) + 1 }
+            : p
+        );
+        saveStoredPromos(updated);
+      }
+
+      // 3. Attempt API call to backend
+      restFetch<any>('/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          source: 'ONLINE',
+          customerName,
+          customerEmail,
+          paymentMethod: 'ONLINE_VA',
+          amountPaid: finalTotal,
+          items: cart.map((item) => ({
+            productId: item.product.id,
+            quantity: item.quantity,
+            price: item.product.price,
+            discount: 0,
+          })),
+        }),
+      }).catch(() => null);
+
+      setTimeout(() => {
+        setCheckoutSuccess(false);
+        clearCart();
+        closeCart();
+        toast.success(`Pesanan #${orderNumber} berhasil dibuat dan tercatat di sistem!`);
+      }, 1200);
+    } catch (err: any) {
+      setCheckoutSuccess(false);
+      toast.error(`Gagal membuat pesanan: ${err?.message || 'Terjadi kesalahan'}`);
     }
   };
 
@@ -440,16 +533,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
                 {/* Checkout Button */}
                 <button
-                  onClick={() => {
-                    setCheckoutSuccess(true);
-                    setTimeout(() => {
-                      setCheckoutSuccess(false);
-                      clearCart();
-                      closeCart();
-                      toast.success('Pesanan Anda berhasil dibuat dan diteruskan ke kasir toko!');
-                    }, 1500);
-                  }}
-                  className="w-full py-3.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white font-semibold text-xs flex items-center justify-center space-x-2 transition-all active:scale-95 shadow-none"
+                  onClick={handleCheckout}
+                  disabled={checkoutSuccess}
+                  className="w-full py-3.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] disabled:opacity-70 text-white font-semibold text-xs flex items-center justify-center space-x-2 transition-all active:scale-95 shadow-none"
                 >
                   {checkoutSuccess ? (
                     <>

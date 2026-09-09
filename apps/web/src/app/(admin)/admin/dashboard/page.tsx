@@ -32,6 +32,13 @@ import {
   Settings,
   Check,
   Sparkles,
+  Calendar,
+  Filter,
+  FileText,
+  Printer,
+  ShoppingCart,
+  FolderPlus,
+  Folder,
 } from 'lucide-react';
 import { restFetch } from '@/lib/api-client';
 import {
@@ -43,6 +50,25 @@ import {
   saveStoredTaxSettings,
   DEFAULT_TAX_SETTINGS,
 } from '@/lib/promo-tax-store';
+import { getStoredOrders, saveStoredOrders, Order } from '@/lib/orders-store';
+import {
+  CategoryItem,
+  getStoredCategories,
+  saveStoredCategories,
+  addStoredCategory,
+  updateStoredCategory,
+  deleteStoredCategory,
+  DEFAULT_CATEGORIES,
+} from '@/lib/categories-store';
+import {
+  StoredProduct,
+  getStoredProducts,
+  saveStoredProducts,
+  addStoredProduct,
+  updateStoredProduct,
+  deleteStoredProduct,
+  DEFAULT_PRODUCTS,
+} from '@/lib/products-store';
 
 interface Product {
   id: string;
@@ -53,34 +79,12 @@ interface Product {
   costPrice?: number;
   stock: number;
   minStockAlert: number;
+  categoryId?: string;
   categoryName?: string;
+  category?: { id: string; name: string; slug: string };
+  imageUrl?: string;
   status?: string;
   description?: string;
-}
-
-interface OrderItem {
-  id: string;
-  productName: string;
-  productSku: string;
-  price: number;
-  quantity: number;
-  discount: number;
-  subtotal: number;
-}
-
-interface Order {
-  id: string;
-  orderNumber: string;
-  source: string;
-  status: string;
-  totalAmount: number;
-  discountAmount: number;
-  finalAmount: number;
-  paymentMethod: string;
-  paymentStatus: string;
-  customerName: string;
-  createdAt: string;
-  items: OrderItem[];
 }
 
 interface InventoryMovement {
@@ -110,10 +114,31 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(false);
 
   const [productsList, setProductsList] = useState<Product[]>([]);
+  const [categoriesList, setCategoriesList] = useState<CategoryItem[]>([]);
   const [ordersList, setOrdersList] = useState<Order[]>([]);
   const [reportsData, setReportsData] = useState<any>(null);
   const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([]);
   const [usersList, setUsersList] = useState<UserAccount[]>([]);
+
+  // Sub-tab for Products section: Products vs Categories
+  const [productSubTab, setProductSubTab] = useState<'PRODUCTS' | 'CATEGORIES'>('PRODUCTS');
+
+  // Categories Management State
+  const [categorySearch, setCategorySearch] = useState('');
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null);
+  const [deleteCategoryModal, setDeleteCategoryModal] = useState<CategoryItem | null>(null);
+  const [categoryForm, setCategoryForm] = useState<{
+    name: string;
+    slug: string;
+    description: string;
+    color: string;
+  }>({
+    name: '',
+    slug: '',
+    description: '',
+    color: 'amber',
+  });
 
   // Promos & Tax State
   const [promosList, setPromosList] = useState<PromoCode[]>([]);
@@ -144,6 +169,14 @@ export default function AdminDashboardPage() {
     isActive: true,
   });
 
+  // Reports Filter & View State
+  const [reportPeriod, setReportPeriod] = useState<'ALL' | 'TODAY' | '7DAYS' | '30DAYS' | 'THIS_MONTH' | 'CUSTOM'>('ALL');
+  const [reportSourceFilter, setReportSourceFilter] = useState<string>('ALL');
+  const [reportPaymentFilter, setReportPaymentFilter] = useState<string>('ALL');
+  const [reportStartDate, setReportStartDate] = useState<string>('');
+  const [reportEndDate, setReportEndDate] = useState<string>('');
+  const [reportSubTab, setReportSubTab] = useState<'OVERVIEW' | 'PRODUCTS' | 'PAYMENTS' | 'DAILY'>('OVERVIEW');
+
   const [productSearch, setProductSearch] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState('ALL');
   const [productPage, setProductPage] = useState(1);
@@ -151,6 +184,7 @@ export default function AdminDashboardPage() {
 
   const [createProductOpen, setCreateProductOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deleteProductModal, setDeleteProductModal] = useState<Product | null>(null);
   const [productForm, setProductForm] = useState({
     name: '',
     sku: '',
@@ -159,7 +193,8 @@ export default function AdminDashboardPage() {
     costPrice: 0,
     stock: 0,
     minStockAlert: 5,
-    categoryName: 'Coffee',
+    categoryName: 'Kopi & Minuman',
+    imageUrl: '',
     description: '',
   });
 
@@ -197,17 +232,6 @@ export default function AdminDashboardPage() {
     password: '',
     role: 'CASHIER',
   });
-
-  const initialProducts: Product[] = [
-    { id: 'p-1', name: 'Single Origin Espresso', sku: 'BEV-ESP-001', barcode: '89910010001', price: 28000, costPrice: 12000, stock: 120, minStockAlert: 15, categoryName: 'Coffee', status: 'ACTIVE' },
-    { id: 'p-2', name: 'Iced Oat Caramel Macchiato', sku: 'BEV-MAC-002', barcode: '89910010002', price: 38000, costPrice: 16000, stock: 85, minStockAlert: 10, categoryName: 'Coffee', status: 'ACTIVE' },
-    { id: 'p-3', name: 'Butter Croissant French AOP', sku: 'BAK-CRS-001', barcode: '89910010003', price: 24000, costPrice: 9000, stock: 8, minStockAlert: 10, categoryName: 'Bakery', status: 'ACTIVE' },
-    { id: 'p-4', name: 'Smoked Beef Brioche Sandwich', sku: 'MEA-SND-001', barcode: '89910010004', price: 48000, costPrice: 22000, stock: 4, minStockAlert: 8, categoryName: 'Meals', status: 'ACTIVE' },
-    { id: 'p-5', name: 'Ceremonial Uji Matcha Latte', sku: 'BEV-MTC-003', barcode: '89910010005', price: 35000, costPrice: 15000, stock: 50, minStockAlert: 10, categoryName: 'Tea', status: 'ACTIVE' },
-    { id: 'p-6', name: 'Pain au Chocolat Belgian Dark', sku: 'BAK-CHO-002', barcode: '89910010006', price: 28000, costPrice: 11000, stock: 3, minStockAlert: 10, categoryName: 'Bakery', status: 'ACTIVE' },
-    { id: 'p-7', name: 'Chocochip Artisan Cookie', sku: 'SNK-CKI-001', barcode: '89910010007', price: 18000, costPrice: 7000, stock: 55, minStockAlert: 15, categoryName: 'Snacks', status: 'ACTIVE' },
-    { id: 'p-8', name: 'Sparkling Lemon Cold Brew', sku: 'BEV-CLB-004', barcode: '89910010008', price: 32000, costPrice: 13000, stock: 2, minStockAlert: 6, categoryName: 'Coffee', status: 'ACTIVE' },
-  ];
 
   const initialOrders: Order[] = [
     {
@@ -278,23 +302,67 @@ export default function AdminDashboardPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [fetchedProducts, fetchedOrders, fetchedReports, fetchedUsers] = await Promise.allSettled([
+      const [fetchedProducts, fetchedOrders, fetchedReports, fetchedUsers, fetchedCategories] = await Promise.allSettled([
         restFetch<Product[]>('/products'),
         restFetch<Order[]>('/orders'),
         restFetch<any>('/orders/reports'),
         restFetch<UserAccount[]>('/users'),
+        restFetch<CategoryItem[]>('/categories'),
       ]);
 
-      if (fetchedProducts.status === 'fulfilled' && Array.isArray(fetchedProducts.value) && fetchedProducts.value.length > 0) {
-        setProductsList(fetchedProducts.value);
+      // Handle Categories
+      const storedCategories = getStoredCategories();
+      if (fetchedCategories.status === 'fulfilled' && Array.isArray(fetchedCategories.value) && fetchedCategories.value.length > 0) {
+        const catMap = new Map<string, CategoryItem>();
+        storedCategories.forEach((c) => catMap.set(c.name.toLowerCase(), c));
+        fetchedCategories.value.forEach((c) => {
+          catMap.set(c.name.toLowerCase(), {
+            id: c.id,
+            name: c.name,
+            slug: c.slug || c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            description: c.description || '',
+            color: c.color || 'amber',
+            createdAt: c.createdAt || new Date().toISOString(),
+          });
+        });
+        const mergedCategories = Array.from(catMap.values());
+        setCategoriesList(mergedCategories);
+        saveStoredCategories(mergedCategories);
       } else {
-        setProductsList(initialProducts);
+        setCategoriesList(storedCategories);
       }
 
-      if (fetchedOrders.status === 'fulfilled' && Array.isArray(fetchedOrders.value) && fetchedOrders.value.length > 0) {
-        setOrdersList(fetchedOrders.value);
+      // Handle Products
+      const storedProducts = getStoredProducts();
+      if (fetchedProducts.status === 'fulfilled' && Array.isArray(fetchedProducts.value) && fetchedProducts.value.length > 0) {
+        const prodMap = new Map<string, Product>();
+        storedProducts.forEach((p) => prodMap.set(p.sku, p as Product));
+        fetchedProducts.value.forEach((p) => {
+          prodMap.set(p.sku, {
+            ...p,
+            categoryName: p.categoryName || p.category?.name || 'Kopi & Minuman',
+          });
+        });
+        const mergedProducts = Array.from(prodMap.values());
+        setProductsList(mergedProducts);
+        saveStoredProducts(mergedProducts as StoredProduct[]);
       } else {
-        setOrdersList(initialOrders);
+        setProductsList(storedProducts as Product[]);
+      }
+
+      // Handle Orders
+      const storedOrders = getStoredOrders();
+      if (fetchedOrders.status === 'fulfilled' && Array.isArray(fetchedOrders.value) && fetchedOrders.value.length > 0) {
+        const orderMap = new Map<string, Order>();
+        storedOrders.forEach((o) => orderMap.set(o.id, o));
+        fetchedOrders.value.forEach((o) => orderMap.set(o.id, o));
+        const merged = Array.from(orderMap.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setOrdersList(merged);
+        saveStoredOrders(merged);
+      } else {
+        setOrdersList(storedOrders);
       }
 
       if (fetchedReports.status === 'fulfilled' && fetchedReports.value) {
@@ -307,8 +375,9 @@ export default function AdminDashboardPage() {
         setUsersList(initialUsers);
       }
     } catch {
-      setProductsList(initialProducts);
-      setOrdersList(initialOrders);
+      setCategoriesList(getStoredCategories());
+      setProductsList(getStoredProducts() as Product[]);
+      setOrdersList(getStoredOrders());
       setUsersList(initialUsers);
     } finally {
       setLoading(false);
@@ -347,7 +416,7 @@ export default function AdminDashboardPage() {
 
   const totalSalesAmount = ordersList.filter((o) => o.status === 'COMPLETED').reduce((sum, o) => sum + o.finalAmount, 0);
   const todayStr = new Date().toISOString().slice(0, 10);
-  const todayOrders = ordersList.filter((o) => o.createdAt.slice(0, 10) === todayStr && o.status === 'COMPLETED');
+  const todayOrders = ordersList.filter((o) => o.createdAt && o.createdAt.slice(0, 10) === todayStr && o.status === 'COMPLETED');
   const todaySalesAmount = todayOrders.reduce((sum, o) => sum + o.finalAmount, 0);
   const todayTransactionsCount = todayOrders.length;
   const lowStockProducts = productsList.filter((p) => p.stock <= p.minStockAlert);
@@ -366,16 +435,46 @@ export default function AdminDashboardPage() {
   });
   const topProductsList = Array.from(topProductsMap.values()).sort((a, b) => b.sold - a.sold).slice(0, 5);
 
-  const chartDays = reportsData?.chartDays || [
-    { day: 'Sen', date: '01/09', revenue: 450000, transactions: 12 },
-    { day: 'Sel', date: '02/09', revenue: 580000, transactions: 15 },
-    { day: 'Rab', date: '03/09', revenue: 520000, transactions: 14 },
-    { day: 'Kam', date: '04/09', revenue: 690000, transactions: 18 },
-    { day: 'Jum', date: '05/09', revenue: 850000, transactions: 24 },
-    { day: 'Sab', date: '06/09', revenue: 1120000, transactions: 31 },
-    { day: 'Min', date: '07/09', revenue: todaySalesAmount || 940000, transactions: todayTransactionsCount || 26 },
-  ];
-  const maxRevenueInChart = Math.max(...chartDays.map((d: any) => d.revenue), 1000000);
+  // Dynamic 7-Day Revenue Trend Calculation from Real Orders
+  const now = new Date();
+  const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+  const chartDays = Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date(now.getTime() - (6 - i) * 86400000);
+    const dateStr = d.toISOString().slice(0, 10);
+    const dayOrders = ordersList.filter(
+      (o) => o.status === 'COMPLETED' && o.createdAt && o.createdAt.slice(0, 10) === dateStr
+    );
+    const revenue = dayOrders.reduce((sum, o) => sum + o.finalAmount, 0);
+    const transactions = dayOrders.length;
+    return {
+      day: dayNames[d.getDay()],
+      date: `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`,
+      revenue,
+      transactions,
+    };
+  });
+  const maxRevenueInChart = Math.max(...chartDays.map((d) => d.revenue), 100000);
+
+  // Category badge styling helper
+  const getCategoryBadgeClass = (categoryName?: string) => {
+    const name = (categoryName || '').toLowerCase();
+    if (name.includes('kopi') || name.includes('coffee') || name.includes('bev')) {
+      return 'bg-amber-50 text-amber-900 border border-amber-200';
+    }
+    if (name.includes('pastry') || name.includes('bakery') || name.includes('roti') || name.includes('cake')) {
+      return 'bg-orange-50 text-orange-900 border border-orange-200';
+    }
+    if (name.includes('makan') || name.includes('meal') || name.includes('food') || name.includes('berat')) {
+      return 'bg-rose-50 text-rose-900 border border-rose-200';
+    }
+    if (name.includes('teh') || name.includes('tea') || name.includes('artisan') || name.includes('matcha')) {
+      return 'bg-emerald-50 text-emerald-900 border border-emerald-200';
+    }
+    if (name.includes('snack') || name.includes('camilan') || name.includes('kue')) {
+      return 'bg-blue-50 text-blue-900 border border-blue-200';
+    }
+    return 'bg-slate-100 text-slate-800 border border-slate-200';
+  };
 
   const handleOpenCreateProduct = () => {
     setProductForm({
@@ -386,7 +485,8 @@ export default function AdminDashboardPage() {
       costPrice: 10000,
       stock: 20,
       minStockAlert: 5,
-      categoryName: 'Coffee',
+      categoryName: categoriesList[0]?.name || 'Kopi & Minuman',
+      imageUrl: '',
       description: '',
     });
     setEditingProduct(null);
@@ -403,7 +503,8 @@ export default function AdminDashboardPage() {
       costPrice: prod.costPrice || Math.round(prod.price * 0.45),
       stock: prod.stock,
       minStockAlert: prod.minStockAlert,
-      categoryName: prod.categoryName || 'Coffee',
+      categoryName: prod.categoryName || categoriesList[0]?.name || 'Kopi & Minuman',
+      imageUrl: prod.imageUrl || '',
       description: prod.description || '',
     });
     setCreateProductOpen(true);
@@ -416,17 +517,26 @@ export default function AdminDashboardPage() {
       return;
     }
 
+    const matchedCat = categoriesList.find((c) => c.name === productForm.categoryName);
+
     if (editingProduct) {
-      const updated = { ...editingProduct, ...productForm };
+      const updated: Product = {
+        ...editingProduct,
+        ...productForm,
+        categoryId: matchedCat?.id || editingProduct.categoryId,
+      };
       setProductsList((prev) => prev.map((p) => (p.id === editingProduct.id ? updated : p)));
+      updateStoredProduct(editingProduct.id, updated as StoredProduct);
       toast.success(`Produk "${productForm.name}" berhasil diperbarui.`);
     } else {
       const newProd: Product = {
         id: `p-${Date.now()}`,
         ...productForm,
+        categoryId: matchedCat?.id,
         status: 'ACTIVE',
       };
       setProductsList((prev) => [newProd, ...prev]);
+      addStoredProduct(newProd as StoredProduct);
       setInventoryMovements((prev) => [
         {
           id: `m-${Date.now()}`,
@@ -448,8 +558,114 @@ export default function AdminDashboardPage() {
   const handleDeleteProduct = (prodId: string, prodName: string) => {
     if (confirm(`Apakah Anda yakin ingin menghapus produk "${prodName}"?`)) {
       setProductsList((prev) => prev.filter((p) => p.id !== prodId));
+      deleteStoredProduct(prodId);
       toast.success(`Produk "${prodName}" berhasil dihapus.`);
     }
+  };
+
+  // Category Management Handlers
+  const handleOpenCreateCategory = () => {
+    setEditingCategory(null);
+    setCategoryForm({
+      name: '',
+      slug: '',
+      description: '',
+      color: 'amber',
+    });
+    setCategoryModalOpen(true);
+  };
+
+  const handleOpenEditCategory = (cat: CategoryItem) => {
+    setEditingCategory(cat);
+    setCategoryForm({
+      name: cat.name,
+      slug: cat.slug,
+      description: cat.description || '',
+      color: cat.color || 'amber',
+    });
+    setCategoryModalOpen(true);
+  };
+
+  const handleSaveCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!categoryForm.name.trim()) {
+      toast.error('Nama kategori wajib diisi.');
+      return;
+    }
+    const slug =
+      categoryForm.slug.trim() ||
+      categoryForm.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+
+    if (editingCategory) {
+      const oldName = editingCategory.name;
+      const updatedList = updateStoredCategory(editingCategory.id, {
+        name: categoryForm.name.trim(),
+        slug,
+        description: categoryForm.description.trim(),
+        color: categoryForm.color,
+      });
+      setCategoriesList(updatedList);
+
+      if (oldName !== categoryForm.name.trim()) {
+        const newName = categoryForm.name.trim();
+        setProductsList((prev) =>
+          prev.map((p) => (p.categoryName === oldName ? { ...p, categoryName: newName } : p))
+        );
+        const stored = getStoredProducts().map((p) =>
+          p.categoryName === oldName ? { ...p, categoryName: newName } : p
+        );
+        saveStoredProducts(stored);
+      }
+
+      toast.success(`Kategori "${categoryForm.name}" berhasil diperbarui.`);
+    } else {
+      addStoredCategory({
+        name: categoryForm.name.trim(),
+        slug,
+        description: categoryForm.description.trim(),
+        color: categoryForm.color,
+      });
+      setCategoriesList(getStoredCategories());
+      toast.success(`Kategori "${categoryForm.name}" berhasil ditambahkan.`);
+    }
+    setCategoryModalOpen(false);
+  };
+
+  const handleDeleteCategory = (cat: CategoryItem) => {
+    const linkedCount = productsList.filter(
+      (p) => p.categoryId === cat.id || p.categoryName === cat.name
+    ).length;
+
+    if (linkedCount > 0) {
+      if (
+        !confirm(
+          `Terdapat ${linkedCount} produk yang terhubung dengan kategori "${cat.name}". Kategori produk-produk ini akan dialihkan ke "Umum". Lanjutkan hapus kategori?`
+        )
+      ) {
+        return;
+      }
+      setProductsList((prev) =>
+        prev.map((p) =>
+          p.categoryId === cat.id || p.categoryName === cat.name
+            ? { ...p, categoryName: 'Umum' }
+            : p
+        )
+      );
+      const stored = getStoredProducts().map((p) =>
+        p.categoryId === cat.id || p.categoryName === cat.name
+          ? { ...p, categoryName: 'Umum' }
+          : p
+      );
+      saveStoredProducts(stored);
+    }
+
+    const updated = deleteStoredCategory(cat.id);
+    setCategoriesList(updated);
+    setDeleteCategoryModal(null);
+    toast.success(`Kategori "${cat.name}" berhasil dihapus.`);
   };
 
   const handleApplyAdjustment = () => {
@@ -799,6 +1015,16 @@ export default function AdminDashboardPage() {
     productPage * productPerPage,
   );
 
+  const filteredCategories = categoriesList.filter((c) => {
+    const q = categorySearch.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      c.name.toLowerCase().includes(q) ||
+      c.slug.toLowerCase().includes(q) ||
+      (c.description && c.description.toLowerCase().includes(q))
+    );
+  });
+
   const filteredOrders = ordersList.filter((o) => {
     const matchStatus = orderStatusFilter === 'ALL' || o.status === orderStatusFilter;
     const matchSearch =
@@ -819,6 +1045,175 @@ export default function AdminDashboardPage() {
       u.email.toLowerCase().includes(userSearch.toLowerCase());
     return matchRole && matchSearch;
   });
+
+  // Filtered Orders for Reports & Analytics
+  const filteredReportOrders = ordersList.filter((o) => {
+    if (o.status !== 'COMPLETED') return false;
+
+    // Filter by Source
+    if (reportSourceFilter !== 'ALL' && o.source !== reportSourceFilter) {
+      return false;
+    }
+
+    // Filter by Payment Method
+    if (reportPaymentFilter !== 'ALL' && o.paymentMethod !== reportPaymentFilter) {
+      return false;
+    }
+
+    // Filter by Date / Period
+    const orderDate = new Date(o.createdAt);
+    const now = new Date();
+
+    if (reportPeriod === 'TODAY') {
+      const todayStr = now.toISOString().slice(0, 10);
+      return o.createdAt.slice(0, 10) === todayStr;
+    }
+    if (reportPeriod === '7DAYS') {
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
+      return orderDate >= sevenDaysAgo;
+    }
+    if (reportPeriod === '30DAYS') {
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+      return orderDate >= thirtyDaysAgo;
+    }
+    if (reportPeriod === 'THIS_MONTH') {
+      return orderDate.getFullYear() === now.getFullYear() && orderDate.getMonth() === now.getMonth();
+    }
+    if (reportPeriod === 'CUSTOM') {
+      if (reportStartDate && o.createdAt.slice(0, 10) < reportStartDate) {
+        return false;
+      }
+      if (reportEndDate && o.createdAt.slice(0, 10) > reportEndDate) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Report Metrics
+  const reportGrossSales = filteredReportOrders.reduce((sum, o) => sum + (o.totalAmount || o.finalAmount), 0);
+  const reportTotalDiscount = filteredReportOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
+  const reportNetSales = filteredReportOrders.reduce((sum, o) => sum + o.finalAmount, 0);
+  const reportTotalOrders = filteredReportOrders.length;
+  const reportTotalItemsSold = filteredReportOrders.reduce(
+    (sum, o) => sum + (o.items || []).reduce((acc, i) => acc + (i.quantity || 1), 0),
+    0
+  );
+  const reportAOV = reportTotalOrders > 0 ? Math.round(reportNetSales / reportTotalOrders) : 0;
+
+  // Channel breakdown
+  const posOrders = filteredReportOrders.filter((o) => o.source === 'POS');
+  const onlineOrders = filteredReportOrders.filter((o) => o.source === 'ONLINE');
+  const posRevenue = posOrders.reduce((sum, o) => sum + o.finalAmount, 0);
+  const onlineRevenue = onlineOrders.reduce((sum, o) => sum + o.finalAmount, 0);
+
+  // Payment breakdown
+  const paymentBreakdownMap = new Map<string, { count: number; total: number }>();
+  filteredReportOrders.forEach((o) => {
+    const method = o.paymentMethod || 'CASH';
+    const curr = paymentBreakdownMap.get(method) || { count: 0, total: 0 };
+    curr.count += 1;
+    curr.total += o.finalAmount;
+    paymentBreakdownMap.set(method, curr);
+  });
+  const paymentBreakdownList = Array.from(paymentBreakdownMap.entries()).map(([method, data]) => ({
+    method,
+    count: data.count,
+    total: data.total,
+    percent: reportNetSales > 0 ? Math.round((data.total / reportNetSales) * 100) : 0,
+  }));
+
+  // Top products in filtered report
+  const reportTopProductsMap = new Map<string, { name: string; sku: string; sold: number; revenue: number }>();
+  filteredReportOrders.forEach((o) => {
+    (o.items || []).forEach((item) => {
+      const curr = reportTopProductsMap.get(item.productName) || {
+        name: item.productName,
+        sku: item.productSku || 'SKU-PROD',
+        sold: 0,
+        revenue: 0,
+      };
+      curr.sold += item.quantity || 1;
+      curr.revenue += item.subtotal || (item.price * (item.quantity || 1));
+      reportTopProductsMap.set(item.productName, curr);
+    });
+  });
+  const reportTopProductsList = Array.from(reportTopProductsMap.values())
+    .sort((a, b) => b.sold - a.sold);
+
+  // Daily grouping
+  const dailyReportMap = new Map<string, { date: string; ordersCount: number; itemsCount: number; gross: number; discount: number; net: number }>();
+  filteredReportOrders.forEach((o) => {
+    const dateKey = o.createdAt ? o.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const curr = dailyReportMap.get(dateKey) || {
+      date: dateKey,
+      ordersCount: 0,
+      itemsCount: 0,
+      gross: 0,
+      discount: 0,
+      net: 0,
+    };
+    curr.ordersCount += 1;
+    curr.itemsCount += (o.items || []).reduce((acc, i) => acc + (i.quantity || 1), 0);
+    curr.gross += (o.totalAmount || o.finalAmount);
+    curr.discount += (o.discountAmount || 0);
+    curr.net += o.finalAmount;
+    dailyReportMap.set(dateKey, curr);
+  });
+  const dailyReportList = Array.from(dailyReportMap.values())
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Real CSV Export
+  const handleExportReportCSV = () => {
+    if (filteredReportOrders.length === 0) {
+      toast.warning('Tidak ada data penjualan pada periode yang dipilih untuk diekspor.');
+      return;
+    }
+
+    const headers = [
+      'No. Pesanan',
+      'Tanggal & Waktu',
+      'Saluran Penjualan',
+      'Nama Pelanggan',
+      'Metode Pembayaran',
+      'Status Pembayaran',
+      'Subtotal (Rp)',
+      'Potongan Diskon (Rp)',
+      'Total Akhir (Rp)',
+      'Daftar Produk',
+    ];
+
+    const rows = filteredReportOrders.map((o) => {
+      const itemsDetail = (o.items || [])
+        .map((i) => `${i.productName} (${i.quantity}x @ Rp ${i.price.toLocaleString('id-ID')})`)
+        .join('; ');
+      return [
+        `"${o.orderNumber}"`,
+        `"${new Date(o.createdAt).toLocaleString('id-ID')}"`,
+        `"${o.source}"`,
+        `"${o.customerName || '-'}"`,
+        `"${o.paymentMethod}"`,
+        `"${o.paymentStatus}"`,
+        o.totalAmount || o.finalAmount,
+        o.discountAmount || 0,
+        o.finalAmount,
+        `"${itemsDetail.replace(/"/g, '""')}"`,
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Laporan_Penjualan_AuraPOS_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Berhasil mengunduh ${filteredReportOrders.length} baris data laporan penjualan (CSV).`);
+  };
 
   if (!isAuthorized) {
     return (
@@ -863,7 +1258,7 @@ export default function AdminDashboardPage() {
           </button>
           <button
             type="button"
-            onClick={() => toast.info('Data laporan berhasil diekspor ke file CSV.')}
+            onClick={handleExportReportCSV}
             className="inline-flex items-center justify-center flex-row whitespace-nowrap px-4 py-2 rounded-full border border-[#e0e2ec] hover:border-[#c4c7c5] bg-white hover:bg-[#f0f4f9] text-xs font-medium text-[#1f1f1f] transition-all shadow-none"
           >
             <Download className="w-3.5 h-3.5 mr-2 shrink-0 text-[#444746]" />
@@ -873,9 +1268,9 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Main Workspace Layout */}
-      <div className="flex-1 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 sm:p-8">
-        {/* Left Sidebar Navigation */}
-        <div className="lg:col-span-3 space-y-4">
+      <div className="flex-1 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 sm:p-8 items-start">
+        {/* Left Sidebar Navigation (Fixed / Sticky) */}
+        <div className="lg:col-span-3 sticky top-24 z-20">
           <div className="bg-white border border-[#f0f2f5] rounded-3xl p-3 space-y-1.5 shadow-none">
             <div className="px-3 py-2 text-[11px] font-bold text-md-on-surface-variant/80 uppercase tracking-wider">
               Navigasi Admin
@@ -1013,7 +1408,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Right Main Content Panel */}
-        <div className="lg:col-span-9 space-y-6">
+        <div className="lg:col-span-9 space-y-6 min-w-0">
           {/* Section: Overview */}
           {navSection === 'OVERVIEW' && (
             <div className="space-y-6">
@@ -1086,26 +1481,37 @@ export default function AdminDashboardPage() {
                   <div className="flex justify-between items-center">
                     <div>
                       <h3 className="text-sm font-bold text-md-on-surface">Tren Penjualan 7 Hari Terakhir</h3>
-                      <p className="text-xs text-md-on-surface-variant">Grafik pendapatan toko harian</p>
+                      <p className="text-xs text-md-on-surface-variant">Grafik pendapatan toko harian dari pesanan selesai</p>
                     </div>
                     <span className="text-xs font-mono text-md-primary font-bold">Maks: Rp {maxRevenueInChart.toLocaleString('id-ID')}</span>
                   </div>
 
                   <div className="h-44 flex items-end justify-between gap-2 pt-6">
                     {chartDays.map((d: any, idx: number) => {
-                      const heightPercent = Math.max(12, Math.round((d.revenue / maxRevenueInChart) * 100));
+                      const heightPercent = d.revenue > 0 ? Math.max(16, Math.min(100, Math.round((d.revenue / maxRevenueInChart) * 100))) : 8;
+                      const formattedLabel =
+                        d.revenue >= 1000000
+                          ? `${(d.revenue / 1000000).toFixed(1)}jt`
+                          : d.revenue > 0
+                          ? `${Math.round(d.revenue / 1000)}k`
+                          : '0k';
                       return (
-                        <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
-                          <div className="text-[10px] font-mono text-md-on-surface-variant group-hover:text-md-primary font-semibold">
-                            {(d.revenue / 1000).toFixed(0)}k
+                        <div key={idx} className="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
+                          <div className="text-[10px] font-mono text-md-on-surface-variant group-hover:text-md-primary font-semibold transition-colors">
+                            {formattedLabel}
                           </div>
-                          <div className="w-full bg-[#f0f4f9] rounded-t-xl overflow-hidden flex items-end h-28">
+                          <div className="w-full bg-[#f0f4f9] rounded-t-xl overflow-hidden flex items-end h-28 p-0.5">
                             <div
                               style={{ height: `${heightPercent}%` }}
-                              className="w-full bg-md-primary group-hover:bg-md-primary-hover rounded-t-xl transition-all"
+                              className={`w-full rounded-t-lg transition-all duration-500 ${
+                                d.revenue > 0 ? 'bg-md-primary group-hover:bg-md-primary-hover shadow-xs' : 'bg-slate-300'
+                              }`}
                             />
                           </div>
-                          <span className="text-[11px] font-semibold text-md-on-surface-variant">{d.day}</span>
+                          <div className="text-center">
+                            <div className="text-[11px] font-semibold text-md-on-surface-variant">{d.day}</div>
+                            <div className="text-[9px] text-md-outline font-mono">{d.date}</div>
+                          </div>
                         </div>
                       );
                     })}
@@ -1146,144 +1552,311 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
-          {/* Section: Products Management */}
+          {/* Section: Products & Categories Management (2 Subtabs) */}
           {navSection === 'PRODUCTS' && (
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div className="flex items-center space-x-2 flex-1 w-full sm:w-auto">
-                  <div className="relative flex-1 sm:w-64">
-                    <Search className="w-4 h-4 text-md-on-surface-variant/60 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={productSearch}
-                      onChange={(e) => {
-                        setProductSearch(e.target.value);
-                        setProductPage(1);
-                      }}
-                      placeholder="Cari produk atau SKU..."
-                      className="w-full bg-white border border-[#e0e2ec] focus:border-md-primary rounded-full pl-10 pr-4 py-2 text-xs text-md-on-surface outline-none"
-                    />
+              {/* Subtab Switcher Header */}
+              <div className="flex items-center gap-2 border-b border-[#f0f2f5] pb-3">
+                <button
+                  type="button"
+                  onClick={() => setProductSubTab('PRODUCTS')}
+                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
+                    productSubTab === 'PRODUCTS'
+                      ? 'bg-md-primary text-white shadow-xs'
+                      : 'bg-white text-md-on-surface-variant hover:bg-md-surface-variant/40 border border-[#f0f2f5]'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <Package className="w-3.5 h-3.5" />
+                    <span>Daftar Produk</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                      productSubTab === 'PRODUCTS' ? 'bg-white/20 text-white' : 'bg-md-surface-variant/60 text-md-on-surface'
+                    }`}>
+                      {productsList.length}
+                    </span>
                   </div>
-
-                  <select
-                    value={productCategoryFilter}
-                    onChange={(e) => {
-                      setProductCategoryFilter(e.target.value);
-                      setProductPage(1);
-                    }}
-                    className="bg-white border border-[#e0e2ec] rounded-full px-3.5 py-2 text-xs text-md-on-surface font-semibold outline-none"
-                  >
-                    <option value="ALL">Semua Kategori</option>
-                    <option value="Coffee">Coffee</option>
-                    <option value="Bakery">Bakery</option>
-                    <option value="Meals">Meals</option>
-                    <option value="Tea">Tea</option>
-                    <option value="Snacks">Snacks</option>
-                  </select>
-                </div>
+                </button>
 
                 <button
                   type="button"
-                  onClick={handleOpenCreateProduct}
-                  className="inline-flex items-center justify-center flex-row whitespace-nowrap px-4 py-2 rounded-full bg-md-primary hover:bg-md-primary-hover text-white text-xs font-semibold shadow-none transition-all"
+                  onClick={() => setProductSubTab('CATEGORIES')}
+                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
+                    productSubTab === 'CATEGORIES'
+                      ? 'bg-md-primary text-white shadow-xs'
+                      : 'bg-white text-md-on-surface-variant hover:bg-md-surface-variant/40 border border-[#f0f2f5]'
+                  }`}
                 >
-                  <Plus className="w-4 h-4 mr-1.5 shrink-0" />
-                  <span>Tambah Produk</span>
+                  <div className="flex items-center space-x-2">
+                    <Folder className="w-3.5 h-3.5" />
+                    <span>Manajemen Kategori</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                      productSubTab === 'CATEGORIES' ? 'bg-white/20 text-white' : 'bg-md-surface-variant/60 text-md-on-surface'
+                    }`}>
+                      {categoriesList.length}
+                    </span>
+                  </div>
                 </button>
               </div>
 
-              {/* Products Table (Shadow-none, Light Gray Border) */}
-              <div className="bg-white border border-[#f0f2f5] rounded-3xl overflow-hidden shadow-none">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-md-on-surface">
-                    <thead className="bg-[#f7f9fc] border-b border-[#f0f2f5] text-[11px] font-bold text-md-on-surface-variant uppercase tracking-wider">
-                      <tr>
-                        <th className="p-4">Produk</th>
-                        <th className="p-4">SKU & Barcode</th>
-                        <th className="p-4">Kategori</th>
-                        <th className="p-4">Harga Jual</th>
-                        <th className="p-4">Stok</th>
-                        <th className="p-4 text-right">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#f0f2f5]">
-                      {paginatedProducts.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="p-8 text-center text-md-on-surface-variant">
-                            Tidak ada data produk ditemukan.
-                          </td>
-                        </tr>
-                      ) : (
-                        paginatedProducts.map((p) => (
-                          <tr key={p.id} className="hover:bg-[#f7f9fc]/60 transition-colors">
-                            <td className="p-4 font-bold text-md-on-surface">{p.name}</td>
-                            <td className="p-4 font-mono text-md-on-surface-variant">
-                              <div>{p.sku}</div>
-                              <div className="text-[10px] text-md-outline">{p.barcode || '-'}</div>
-                            </td>
-                            <td className="p-4">
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#f0f4f9] text-md-on-surface">
-                                {p.categoryName || 'Katalog'}
-                              </span>
-                            </td>
-                            <td className="p-4 font-mono font-bold text-md-on-surface">
-                              Rp {p.price.toLocaleString('id-ID')}
-                            </td>
-                            <td className="p-4">
-                              <span
-                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                                  p.stock <= p.minStockAlert
-                                    ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                }`}
-                              >
-                                {p.stock} unit
-                              </span>
-                            </td>
-                            <td className="p-4 text-right space-x-1.5">
-                              <button
-                                onClick={() => handleOpenEditProduct(p)}
-                                className="p-1.5 rounded-full hover:bg-[#f0f4f9] text-md-on-surface-variant hover:text-md-primary transition-colors"
-                                aria-label="Edit produk"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteProduct(p.id, p.name)}
-                                className="p-1.5 rounded-full hover:bg-red-50 text-md-on-surface-variant hover:text-red-600 transition-colors"
-                                aria-label="Hapus produk"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+              {/* Subtab 1: PRODUCTS LIST */}
+              {productSubTab === 'PRODUCTS' && (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div className="flex items-center space-x-2 flex-1 w-full sm:w-auto">
+                      <div className="relative flex-1 sm:w-64">
+                        <Search className="w-4 h-4 text-md-on-surface-variant/60 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={productSearch}
+                          onChange={(e) => {
+                            setProductSearch(e.target.value);
+                            setProductPage(1);
+                          }}
+                          placeholder="Cari produk atau SKU..."
+                          className="w-full bg-white border border-[#e0e2ec] focus:border-md-primary rounded-full pl-10 pr-4 py-2 text-xs text-md-on-surface outline-none"
+                        />
+                      </div>
 
-                {/* Pagination Controls */}
-                <div className="p-4 border-t border-[#f0f2f5] flex items-center justify-between text-xs text-md-on-surface-variant bg-[#f7f9fc]">
-                  <span>Halaman {productPage} dari {totalProductPages}</span>
-                  <div className="flex space-x-2">
+                      <select
+                        value={productCategoryFilter}
+                        onChange={(e) => {
+                          setProductCategoryFilter(e.target.value);
+                          setProductPage(1);
+                        }}
+                        className="bg-white border border-[#e0e2ec] rounded-full px-3.5 py-2 text-xs text-md-on-surface font-semibold outline-none"
+                      >
+                        <option value="ALL">Semua Kategori</option>
+                        {categoriesList.map((cat) => (
+                          <option key={cat.id} value={cat.name}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     <button
-                      disabled={productPage === 1}
-                      onClick={() => setProductPage((p) => Math.max(1, p - 1))}
-                      className="px-3.5 py-1.5 rounded-full border border-[#e0e2ec] bg-white text-xs disabled:opacity-40"
+                      type="button"
+                      onClick={handleOpenCreateProduct}
+                      className="inline-flex items-center justify-center flex-row whitespace-nowrap px-4 py-2 rounded-full bg-md-primary hover:bg-md-primary-hover text-white text-xs font-semibold shadow-none transition-all"
                     >
-                      Sebelumnya
-                    </button>
-                    <button
-                      disabled={productPage >= totalProductPages}
-                      onClick={() => setProductPage((p) => p + 1)}
-                      className="px-3.5 py-1.5 rounded-full border border-[#e0e2ec] bg-white text-xs disabled:opacity-40"
-                    >
-                      Selanjutnya
+                      <Plus className="w-4 h-4 mr-1.5 shrink-0" />
+                      <span>Tambah Produk</span>
                     </button>
                   </div>
+
+                  {/* Products Table */}
+                  <div className="bg-white border border-[#f0f2f5] rounded-3xl overflow-hidden shadow-none">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs text-md-on-surface">
+                        <thead className="bg-[#f7f9fc] border-b border-[#f0f2f5] text-[11px] font-bold text-md-on-surface-variant uppercase tracking-wider">
+                          <tr>
+                            <th className="py-3.5 px-4 min-w-[200px]">Produk</th>
+                            <th className="py-3.5 px-4 min-w-[130px] whitespace-nowrap">SKU & Barcode</th>
+                            <th className="py-3.5 px-4 min-w-[150px] whitespace-nowrap">Kategori</th>
+                            <th className="py-3.5 px-4 min-w-[110px] whitespace-nowrap">Harga Jual</th>
+                            <th className="py-3.5 px-4 min-w-[100px] whitespace-nowrap">Stok</th>
+                            <th className="py-3.5 px-4 min-w-[90px] text-right whitespace-nowrap">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f0f2f5]">
+                          {paginatedProducts.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="py-8 px-4 text-center text-md-on-surface-variant">
+                                Tidak ada data produk ditemukan.
+                              </td>
+                            </tr>
+                          ) : (
+                            paginatedProducts.map((p) => (
+                              <tr key={p.id} className="hover:bg-[#f7f9fc]/60 transition-colors">
+                                <td className="py-3.5 px-4 font-bold text-md-on-surface align-middle">
+                                  <div className="font-semibold text-xs text-md-on-surface">{p.name}</div>
+                                  {p.description && (
+                                    <div className="text-[11px] text-md-on-surface-variant font-normal truncate max-w-xs sm:max-w-sm mt-0.5">
+                                      {p.description}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-3.5 px-4 font-mono text-md-on-surface-variant align-middle whitespace-nowrap">
+                                  <div className="font-semibold text-xs text-md-on-surface tracking-tight">{p.sku}</div>
+                                  <div className="text-[10px] text-md-outline tracking-normal">{p.barcode || '-'}</div>
+                                </td>
+                                <td className="py-3.5 px-4 align-middle whitespace-nowrap">
+                                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${getCategoryBadgeClass(p.categoryName)}`}>
+                                    {p.categoryName || 'Umum'}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-4 font-mono font-bold text-md-on-surface align-middle whitespace-nowrap">
+                                  Rp {p.price.toLocaleString('id-ID')}
+                                </td>
+                                <td className="py-3.5 px-4 align-middle whitespace-nowrap">
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold whitespace-nowrap ${
+                                      p.stock <= p.minStockAlert
+                                        ? 'bg-amber-50 text-amber-900 border border-amber-200'
+                                        : 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+                                    }`}
+                                  >
+                                    {p.stock <= p.minStockAlert && <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />}
+                                    <span>{p.stock} unit</span>
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-4 text-right space-x-1 whitespace-nowrap align-middle">
+                                  <button
+                                    onClick={() => {
+                                      setAdjustModalProduct(p);
+                                      setAdjustQty(0);
+                                      setAdjustType('ADD');
+                                      setAdjustReason('Koreksi Stok');
+                                    }}
+                                    className="p-1.5 rounded-lg hover:bg-[#f0f4f9] text-md-on-surface-variant hover:text-emerald-700 transition-colors inline-flex items-center justify-center"
+                                    title="Sesuaikan Stok"
+                                  >
+                                    <Layers className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleOpenEditProduct(p)}
+                                    className="p-1.5 rounded-lg hover:bg-[#f0f4f9] text-md-on-surface-variant hover:text-md-primary transition-colors inline-flex items-center justify-center"
+                                    title="Edit Produk"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteProduct(p.id, p.name)}
+                                    className="p-1.5 rounded-lg hover:bg-red-50 text-md-on-surface-variant hover:text-red-600 transition-colors inline-flex items-center justify-center"
+                                    title="Hapus Produk"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination Controls */}
+                    <div className="p-4 border-t border-[#f0f2f5] flex items-center justify-between text-xs text-md-on-surface-variant bg-[#f7f9fc]">
+                      <span>Halaman {productPage} dari {totalProductPages}</span>
+                      <div className="flex space-x-2">
+                        <button
+                          disabled={productPage === 1}
+                          onClick={() => setProductPage((p) => Math.max(1, p - 1))}
+                          className="px-3.5 py-1.5 rounded-full border border-[#e0e2ec] bg-white text-xs disabled:opacity-40"
+                        >
+                          Sebelumnya
+                        </button>
+                        <button
+                          disabled={productPage >= totalProductPages}
+                          onClick={() => setProductPage((p) => p + 1)}
+                          className="px-3.5 py-1.5 rounded-full border border-[#e0e2ec] bg-white text-xs disabled:opacity-40"
+                        >
+                          Selanjutnya
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Subtab 2: CATEGORIES MANAGEMENT */}
+              {productSubTab === 'CATEGORIES' && (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div className="relative flex-1 w-full sm:w-64">
+                      <Search className="w-4 h-4 text-md-on-surface-variant/60 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={categorySearch}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                        placeholder="Cari kategori atau slug..."
+                        className="w-full bg-white border border-[#e0e2ec] focus:border-md-primary rounded-full pl-10 pr-4 py-2 text-xs text-md-on-surface outline-none"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenCreateCategory}
+                      className="inline-flex items-center justify-center flex-row whitespace-nowrap px-4 py-2 rounded-full bg-md-primary hover:bg-md-primary-hover text-white text-xs font-semibold shadow-none transition-all"
+                    >
+                      <FolderPlus className="w-4 h-4 mr-1.5 shrink-0" />
+                      <span>Tambah Kategori</span>
+                    </button>
+                  </div>
+
+                  {/* Categories Table */}
+                  <div className="bg-white border border-[#f0f2f5] rounded-3xl overflow-hidden shadow-none">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs text-md-on-surface">
+                        <thead className="bg-[#f7f9fc] border-b border-[#f0f2f5] text-[11px] font-bold text-md-on-surface-variant uppercase tracking-wider">
+                          <tr>
+                            <th className="py-3.5 px-4 w-12 text-center whitespace-nowrap">No</th>
+                            <th className="py-3.5 px-4 min-w-[150px] whitespace-nowrap">Nama Kategori</th>
+                            <th className="py-3.5 px-4 min-w-[130px] whitespace-nowrap">Slug URL</th>
+                            <th className="py-3.5 px-4 min-w-[200px]">Deskripsi</th>
+                            <th className="py-3.5 px-4 min-w-[110px] text-center whitespace-nowrap">Jumlah Produk</th>
+                            <th className="py-3.5 px-4 min-w-[80px] text-right whitespace-nowrap">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f0f2f5]">
+                          {filteredCategories.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="py-8 px-4 text-center text-md-on-surface-variant">
+                                Tidak ada data kategori ditemukan.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredCategories.map((cat, idx) => {
+                              const linkedCount = productsList.filter(
+                                (p) => p.categoryId === cat.id || p.categoryName === cat.name
+                              ).length;
+                              return (
+                                <tr key={cat.id} className="hover:bg-[#f7f9fc]/60 transition-colors">
+                                  <td className="py-3.5 px-4 text-center font-mono text-md-on-surface-variant align-middle">{idx + 1}</td>
+                                  <td className="py-3.5 px-4 font-bold text-md-on-surface align-middle whitespace-nowrap">
+                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${getCategoryBadgeClass(cat.name)}`}>
+                                      {cat.name}
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-4 font-mono text-xs text-md-on-surface-variant align-middle whitespace-nowrap">
+                                    <span className="px-2.5 py-1 rounded-lg bg-[#f0f4f9] text-md-on-surface font-semibold">
+                                      {cat.slug}
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-4 text-md-on-surface-variant align-middle max-w-sm">
+                                    {cat.description || '-'}
+                                  </td>
+                                  <td className="py-3.5 px-4 text-center font-mono font-bold text-md-on-surface align-middle whitespace-nowrap">
+                                    <span className="px-3 py-1 rounded-full bg-[#f0f4f9] text-xs font-semibold">
+                                      {linkedCount} produk
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-4 text-right space-x-1 whitespace-nowrap align-middle">
+                                    <button
+                                      onClick={() => handleOpenEditCategory(cat)}
+                                      className="p-1.5 rounded-lg hover:bg-[#f0f4f9] text-md-on-surface-variant hover:text-md-primary transition-colors inline-flex items-center justify-center"
+                                      title="Edit Kategori"
+                                    >
+                                      <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteCategoryModal(cat)}
+                                      className="p-1.5 rounded-lg hover:bg-red-50 text-md-on-surface-variant hover:text-red-600 transition-colors inline-flex items-center justify-center"
+                                      title="Hapus Kategori"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1551,62 +2124,548 @@ export default function AdminDashboardPage() {
           {/* Section: Reports & Analytics */}
           {navSection === 'REPORTS' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-5 rounded-3xl bg-white border border-[#f0f2f5] shadow-none space-y-1">
-                  <div className="text-xs text-md-on-surface-variant font-medium">Omzet Tunai (CASH)</div>
-                  <div className="text-xl font-bold text-md-on-surface font-mono">
-                    Rp {ordersList.filter((o) => o.paymentMethod === 'CASH' && o.status === 'COMPLETED').reduce((s, o) => s + o.finalAmount, 0).toLocaleString('id-ID')}
-                  </div>
+              {/* Report Header & Action Toolbar */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#f0f2f5]">
+                <div>
+                  <h3 className="text-base font-bold text-md-on-surface">Laporan & Analitik Penjualan</h3>
+                  <p className="text-xs text-md-on-surface-variant">
+                    Analisis performa omzet, efektivitas saluran, produk terlaris, dan rincian metode pembayaran.
+                  </p>
                 </div>
-                <div className="p-5 rounded-3xl bg-white border border-[#f0f2f5] shadow-none space-y-1">
-                  <div className="text-xs text-md-on-surface-variant font-medium">Omzet Nontunai (QRIS & EDC)</div>
-                  <div className="text-xl font-bold text-md-primary font-mono">
-                    Rp {ordersList.filter((o) => (o.paymentMethod === 'QRIS' || o.paymentMethod === 'DEBIT_CARD') && o.status === 'COMPLETED').reduce((s, o) => s + o.finalAmount, 0).toLocaleString('id-ID')}
-                  </div>
-                </div>
-                <div className="p-5 rounded-3xl bg-white border border-[#f0f2f5] shadow-none space-y-1">
-                  <div className="text-xs text-md-on-surface-variant font-medium">Omzet Toko Online</div>
-                  <div className="text-xl font-bold text-emerald-800 font-mono">
-                    Rp {ordersList.filter((o) => o.source === 'ONLINE' && o.status === 'COMPLETED').reduce((s, o) => s + o.finalAmount, 0).toLocaleString('id-ID')}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white border border-[#f0f2f5] rounded-3xl p-6 shadow-none space-y-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-sm font-bold text-md-on-surface">Ringkasan Kinerja Penjualan</h3>
-                    <p className="text-xs text-md-on-surface-variant">Laporan akumulasi performa POS dan marketplace</p>
-                  </div>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => toast.info('Laporan CSV siap diunduh.')}
-                    className="inline-flex items-center justify-center flex-row whitespace-nowrap text-xs font-semibold py-2 px-4 rounded-full bg-md-primary text-white hover:bg-md-primary-hover shadow-none"
+                    onClick={() => window.print()}
+                    className="inline-flex items-center justify-center text-xs font-semibold py-2.5 px-4 rounded-full border border-md-outline/20 text-md-on-surface hover:bg-md-surface-variant/40 transition-colors"
+                  >
+                    <Printer className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                    <span>Cetak Laporan</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportReportCSV}
+                    className="inline-flex items-center justify-center text-xs font-semibold py-2.5 px-4 rounded-full bg-md-primary text-white hover:bg-md-primary-hover shadow-none transition-colors"
                   >
                     <Download className="w-3.5 h-3.5 mr-1.5 shrink-0" />
-                    <span>Unduh CSV</span>
+                    <span>Ekspor CSV ({filteredReportOrders.length})</span>
                   </button>
                 </div>
+              </div>
 
-                <div className="p-4 rounded-2xl bg-[#f7f9fc] border border-[#f0f2f5] space-y-2 text-xs text-md-on-surface-variant">
-                  <div className="flex justify-between">
-                    <span>Total Transaksi Berhasil</span>
-                    <span className="font-mono font-bold text-md-on-surface">{ordersList.filter((o) => o.status === 'COMPLETED').length} transaksi</span>
+              {/* Filters & Period Selector */}
+              <div className="bg-white p-5 rounded-3xl border border-[#f0f2f5] space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#f0f2f5] pb-4">
+                  <div className="flex items-center gap-2 text-xs font-bold text-md-on-surface">
+                    <Filter className="w-4 h-4 text-md-primary" />
+                    <span>Filter & Parameter Laporan</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Rata-rata Nilai Transaksi (Basket Size)</span>
-                    <span className="font-mono font-bold text-md-on-surface">
-                      Rp {Math.round(totalSalesAmount / Math.max(1, ordersList.filter((o) => o.status === 'COMPLETED').length)).toLocaleString('id-ID')}
-                    </span>
+                  {(reportPeriod !== 'ALL' || reportSourceFilter !== 'ALL' || reportPaymentFilter !== 'ALL' || reportStartDate || reportEndDate) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReportPeriod('ALL');
+                        setReportSourceFilter('ALL');
+                        setReportPaymentFilter('ALL');
+                        setReportStartDate('');
+                        setReportEndDate('');
+                      }}
+                      className="text-xs text-md-primary font-medium hover:underline flex items-center gap-1"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Reset Filter
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-md-on-surface-variant mb-1">
+                      Rentang Waktu
+                    </label>
+                    <select
+                      value={reportPeriod}
+                      onChange={(e) => setReportPeriod(e.target.value as any)}
+                      className="w-full text-xs py-2 px-3 rounded-xl border border-md-outline/20 bg-md-surface-variant/20 focus:outline-none focus:border-md-primary font-medium"
+                    >
+                      <option value="ALL">Semua Waktu</option>
+                      <option value="TODAY">Hari Ini</option>
+                      <option value="7DAYS">7 Hari Terakhir</option>
+                      <option value="30DAYS">30 Hari Terakhir</option>
+                      <option value="THIS_MONTH">Bulan Ini</option>
+                      <option value="CUSTOM">Kustom Tanggal</option>
+                    </select>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Jumlah Item Terjual</span>
-                    <span className="font-mono font-bold text-md-on-surface">
-                      {ordersList.filter((o) => o.status === 'COMPLETED').reduce((sum, o) => sum + o.items.reduce((is, i) => is + i.quantity, 0), 0)} unit
-                    </span>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-md-on-surface-variant mb-1">
+                      Saluran Penjualan
+                    </label>
+                    <select
+                      value={reportSourceFilter}
+                      onChange={(e) => setReportSourceFilter(e.target.value as any)}
+                      className="w-full text-xs py-2 px-3 rounded-xl border border-md-outline/20 bg-md-surface-variant/20 focus:outline-none focus:border-md-primary font-medium"
+                    >
+                      <option value="ALL">Semua Saluran (POS & Online)</option>
+                      <option value="POS">Hanya Kasir (POS Offline)</option>
+                      <option value="ONLINE">Hanya Toko Online (Web)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-md-on-surface-variant mb-1">
+                      Metode Pembayaran
+                    </label>
+                    <select
+                      value={reportPaymentFilter}
+                      onChange={(e) => setReportPaymentFilter(e.target.value as any)}
+                      className="w-full text-xs py-2 px-3 rounded-xl border border-md-outline/20 bg-md-surface-variant/20 focus:outline-none focus:border-md-primary font-medium"
+                    >
+                      <option value="ALL">Semua Metode</option>
+                      <option value="CASH">Tunai (CASH)</option>
+                      <option value="QRIS">QRIS Statis/Dinamis</option>
+                      <option value="DEBIT_CARD">Kartu Debit / EDC</option>
+                      <option value="ONLINE_VA">Online VA / E-Payment</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-end">
+                    <div className="w-full py-2 px-3 rounded-xl bg-md-surface-variant/30 text-xs text-md-on-surface-variant font-medium flex items-center justify-between">
+                      <span>Data Cocok:</span>
+                      <span className="font-bold text-md-on-surface">{filteredReportOrders.length} Pesanan</span>
+                    </div>
+                  </div>
+                </div>
+
+                {reportPeriod === 'CUSTOM' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#f0f2f5]">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-md-on-surface-variant mb-1">
+                        Tanggal Mulai
+                      </label>
+                      <input
+                        type="date"
+                        value={reportStartDate}
+                        onChange={(e) => setReportStartDate(e.target.value)}
+                        className="w-full text-xs py-2 px-3 rounded-xl border border-md-outline/20 bg-white focus:outline-none focus:border-md-primary font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-md-on-surface-variant mb-1">
+                        Tanggal Selesai
+                      </label>
+                      <input
+                        type="date"
+                        value={reportEndDate}
+                        onChange={(e) => setReportEndDate(e.target.value)}
+                        className="w-full text-xs py-2 px-3 rounded-xl border border-md-outline/20 bg-white focus:outline-none focus:border-md-primary font-medium"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* KPI Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-5 rounded-3xl bg-white border border-[#f0f2f5] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-md-on-surface-variant font-medium">Total Omzet Bersih</span>
+                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div className="text-2xl font-bold text-md-on-surface font-mono">
+                    Rp {reportNetSales.toLocaleString('id-ID')}
+                  </div>
+                  <div className="text-[11px] text-md-on-surface-variant flex items-center justify-between pt-1">
+                    <span>Omzet Kotor:</span>
+                    <span className="font-mono font-medium">Rp {reportGrossSales.toLocaleString('id-ID')}</span>
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-3xl bg-white border border-[#f0f2f5] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-md-on-surface-variant font-medium">Transaksi Berhasil</span>
+                    <Receipt className="w-4 h-4 text-md-primary" />
+                  </div>
+                  <div className="text-2xl font-bold text-md-on-surface font-mono">
+                    {reportTotalOrders} <span className="text-sm font-normal text-md-on-surface-variant">transaksi</span>
+                  </div>
+                  <div className="text-[11px] text-md-on-surface-variant flex items-center justify-between pt-1">
+                    <span>Kasir: {posOrders.length}</span>
+                    <span>Online: {onlineOrders.length}</span>
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-3xl bg-white border border-[#f0f2f5] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-md-on-surface-variant font-medium">Rata-rata Nilai Order (AOV)</span>
+                    <TrendingUp className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div className="text-2xl font-bold text-md-on-surface font-mono">
+                    Rp {reportAOV.toLocaleString('id-ID')}
+                  </div>
+                  <div className="text-[11px] text-md-on-surface-variant pt-1">
+                    Basket size per transaksi belanja
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-3xl bg-white border border-[#f0f2f5] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-md-on-surface-variant font-medium">Total Produk & Diskon</span>
+                    <Tag className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div className="text-2xl font-bold text-md-on-surface font-mono">
+                    {reportTotalItemsSold} <span className="text-sm font-normal text-md-on-surface-variant">unit terjual</span>
+                  </div>
+                  <div className="text-[11px] text-md-on-surface-variant flex items-center justify-between pt-1">
+                    <span>Diskon Diberikan:</span>
+                    <span className="font-mono font-medium text-rose-600">-Rp {reportTotalDiscount.toLocaleString('id-ID')}</span>
                   </div>
                 </div>
               </div>
+
+              {/* Sub-tab Navigation */}
+              <div className="flex items-center gap-2 border-b border-[#f0f2f5] pb-2 overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setReportSubTab('OVERVIEW')}
+                  className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                    reportSubTab === 'OVERVIEW'
+                      ? 'bg-md-primary text-white'
+                      : 'bg-white text-md-on-surface-variant hover:bg-md-surface-variant/40 border border-[#f0f2f5]'
+                  }`}
+                >
+                  Ringkasan & Saluran
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReportSubTab('PRODUCTS')}
+                  className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                    reportSubTab === 'PRODUCTS'
+                      ? 'bg-md-primary text-white'
+                      : 'bg-white text-md-on-surface-variant hover:bg-md-surface-variant/40 border border-[#f0f2f5]'
+                  }`}
+                >
+                  Produk Terlaris ({reportTopProductsList.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReportSubTab('PAYMENTS')}
+                  className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                    reportSubTab === 'PAYMENTS'
+                      ? 'bg-md-primary text-white'
+                      : 'bg-white text-md-on-surface-variant hover:bg-md-surface-variant/40 border border-[#f0f2f5]'
+                  }`}
+                >
+                  Metode Pembayaran ({paymentBreakdownList.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReportSubTab('DAILY')}
+                  className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                    reportSubTab === 'DAILY'
+                      ? 'bg-md-primary text-white'
+                      : 'bg-white text-md-on-surface-variant hover:bg-md-surface-variant/40 border border-[#f0f2f5]'
+                  }`}
+                >
+                  Rekap Harian ({dailyReportList.length})
+                </button>
+              </div>
+
+              {/* Sub-tab Content: OVERVIEW */}
+              {reportSubTab === 'OVERVIEW' && (
+                <div className="space-y-6">
+                  {/* Channel Breakdown Cards */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white p-6 rounded-3xl border border-[#f0f2f5] space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Store className="w-5 h-5 text-md-primary" />
+                          <h4 className="text-sm font-bold text-md-on-surface">Kasir POS Offline</h4>
+                        </div>
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-md-primary/10 text-md-primary">
+                          {reportNetSales > 0 ? Math.round((posRevenue / reportNetSales) * 100) : 0}% Omzet
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs text-md-on-surface-variant">
+                          <span>Total Omzet</span>
+                          <span className="font-mono font-bold text-md-on-surface">Rp {posRevenue.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-md-on-surface-variant">
+                          <span>Jumlah Transaksi</span>
+                          <span className="font-mono font-bold text-md-on-surface">{posOrders.length} transaksi</span>
+                        </div>
+                        <div className="w-full bg-[#f0f2f5] h-2 rounded-full overflow-hidden mt-3">
+                          <div
+                            className="bg-md-primary h-full rounded-full transition-all duration-500"
+                            style={{ width: `${reportNetSales > 0 ? (posRevenue / reportNetSales) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-3xl border border-[#f0f2f5] space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ShoppingCart className="w-5 h-5 text-emerald-600" />
+                          <h4 className="text-sm font-bold text-md-on-surface">Toko Online (E-Commerce Web)</h4>
+                        </div>
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                          {reportNetSales > 0 ? Math.round((onlineRevenue / reportNetSales) * 100) : 0}% Omzet
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs text-md-on-surface-variant">
+                          <span>Total Omzet</span>
+                          <span className="font-mono font-bold text-md-on-surface">Rp {onlineRevenue.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-md-on-surface-variant">
+                          <span>Jumlah Transaksi</span>
+                          <span className="font-mono font-bold text-md-on-surface">{onlineOrders.length} pesanan</span>
+                        </div>
+                        <div className="w-full bg-[#f0f2f5] h-2 rounded-full overflow-hidden mt-3">
+                          <div
+                            className="bg-emerald-600 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${reportNetSales > 0 ? (onlineRevenue / reportNetSales) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Financial Breakdown Table */}
+                  <div className="bg-white p-6 rounded-3xl border border-[#f0f2f5] space-y-4">
+                    <h4 className="text-sm font-bold text-md-on-surface">Rincian Finansial Periode Terpilih</h4>
+                    <div className="divide-y divide-[#f0f2f5] text-xs">
+                      <div className="py-3 flex justify-between items-center text-md-on-surface-variant">
+                        <span>Penjualan Kotor (Gross Sales)</span>
+                        <span className="font-mono font-semibold text-md-on-surface">Rp {reportGrossSales.toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="py-3 flex justify-between items-center text-md-on-surface-variant">
+                        <span>Total Potongan Promo & Diskon</span>
+                        <span className="font-mono font-semibold text-rose-600">- Rp {reportTotalDiscount.toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="py-3 flex justify-between items-center font-bold text-md-on-surface text-sm bg-[#f7f9fc] px-3 rounded-xl mt-1">
+                        <span>Penjualan Bersih (Net Revenue)</span>
+                        <span className="font-mono text-emerald-700">Rp {reportNetSales.toLocaleString('id-ID')}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-tab Content: PRODUCTS */}
+              {reportSubTab === 'PRODUCTS' && (
+                <div className="bg-white rounded-3xl border border-[#f0f2f5] overflow-hidden">
+                  <div className="p-6 border-b border-[#f0f2f5] flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-md-on-surface">Peringkat Produk Terlaris</h4>
+                      <p className="text-xs text-md-on-surface-variant">Daftar produk dengan volume dan nilai penjualan tertinggi</p>
+                    </div>
+                  </div>
+                  {reportTopProductsList.length === 0 ? (
+                    <div className="p-12 text-center text-xs text-md-on-surface-variant">
+                      Tidak ada data penjualan produk pada kriteria filter ini.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-[#f0f2f5] bg-md-surface-variant/20 font-semibold text-md-on-surface-variant">
+                            <th className="py-3 px-4 w-12 text-center">No</th>
+                            <th className="py-3 px-4">Nama Produk</th>
+                            <th className="py-3 px-4">SKU</th>
+                            <th className="py-3 px-4 text-center">Unit Terjual</th>
+                            <th className="py-3 px-4 text-right">Total Pendapatan</th>
+                            <th className="py-3 px-4 text-right">Kontribusi Omzet</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f0f2f5]">
+                          {reportTopProductsList.map((prod, idx) => {
+                            const contribution = reportNetSales > 0 ? Math.round((prod.revenue / reportNetSales) * 100) : 0;
+                            return (
+                              <tr key={prod.name} className="hover:bg-md-surface-variant/10">
+                                <td className="py-3 px-4 text-center font-bold text-md-on-surface-variant">
+                                  {idx === 0 ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold">1</span>
+                                  ) : idx === 1 ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-700 text-[11px] font-bold">2</span>
+                                  ) : idx === 2 ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold">3</span>
+                                  ) : (
+                                    idx + 1
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 font-semibold text-md-on-surface">{prod.name}</td>
+                                <td className="py-3 px-4 font-mono text-md-on-surface-variant">{prod.sku}</td>
+                                <td className="py-3 px-4 text-center font-mono font-bold text-md-on-surface">{prod.sold} pcs</td>
+                                <td className="py-3 px-4 text-right font-mono font-bold text-md-on-surface">
+                                  Rp {prod.revenue.toLocaleString('id-ID')}
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <div className="w-16 bg-[#f0f2f5] h-1.5 rounded-full overflow-hidden hidden sm:block">
+                                      <div
+                                        className="bg-md-primary h-full rounded-full"
+                                        style={{ width: `${Math.min(100, contribution)}%` }}
+                                      />
+                                    </div>
+                                    <span className="font-mono text-xs font-semibold text-md-on-surface-variant">{contribution}%</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sub-tab Content: PAYMENTS */}
+              {reportSubTab === 'PAYMENTS' && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white p-6 rounded-3xl border border-[#f0f2f5] space-y-4">
+                    <h4 className="text-sm font-bold text-md-on-surface">Porsi Transaksi Berdasarkan Metode</h4>
+                    <p className="text-xs text-md-on-surface-variant">Rincian perolehan dana dari masing-masing kanal pembayaran</p>
+                    
+                    <div className="space-y-4 pt-2">
+                      {paymentBreakdownList.length === 0 ? (
+                        <div className="text-center py-8 text-xs text-md-on-surface-variant">
+                          Tidak ada data pembayaran.
+                        </div>
+                      ) : (
+                        paymentBreakdownList.map((item) => (
+                          <div key={item.method} className="space-y-1.5">
+                            <div className="flex justify-between text-xs">
+                              <span className="font-semibold text-md-on-surface">
+                                {item.method === 'CASH' && 'Tunai (CASH)'}
+                                {item.method === 'QRIS' && 'QRIS Statis/Dinamis'}
+                                {item.method === 'DEBIT_CARD' && 'Kartu Debit / EDC'}
+                                {item.method === 'ONLINE_VA' && 'Virtual Account / Online'}
+                                {!['CASH', 'QRIS', 'DEBIT_CARD', 'ONLINE_VA'].includes(item.method) && item.method}
+                              </span>
+                              <span className="font-mono font-bold text-md-on-surface">
+                                Rp {item.total.toLocaleString('id-ID')} ({item.percent}%)
+                              </span>
+                            </div>
+                            <div className="w-full bg-[#f0f2f5] h-2 rounded-full overflow-hidden">
+                              <div
+                                className="bg-md-primary h-full rounded-full transition-all duration-500"
+                                style={{ width: `${item.percent}%` }}
+                              />
+                            </div>
+                            <div className="text-[11px] text-md-on-surface-variant text-right">
+                              {item.count} transaksi berhasil
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-3xl border border-[#f0f2f5] space-y-4">
+                    <h4 className="text-sm font-bold text-md-on-surface">Tabel Metode Pembayaran</h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-[#f0f2f5] bg-md-surface-variant/20 font-semibold text-md-on-surface-variant">
+                            <th className="py-2.5 px-3">Metode</th>
+                            <th className="py-2.5 px-3 text-center">Transaksi</th>
+                            <th className="py-2.5 px-3 text-right">Total Dana</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f0f2f5]">
+                          {paymentBreakdownList.map((item) => (
+                            <tr key={item.method} className="hover:bg-md-surface-variant/10">
+                              <td className="py-2.5 px-3 font-semibold text-md-on-surface">
+                                {item.method === 'CASH' && 'Tunai (CASH)'}
+                                {item.method === 'QRIS' && 'QRIS'}
+                                {item.method === 'DEBIT_CARD' && 'Kartu Debit'}
+                                {item.method === 'ONLINE_VA' && 'Virtual Account'}
+                                {!['CASH', 'QRIS', 'DEBIT_CARD', 'ONLINE_VA'].includes(item.method) && item.method}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono">{item.count}</td>
+                              <td className="py-2.5 px-3 text-right font-mono font-bold text-md-on-surface">
+                                Rp {item.total.toLocaleString('id-ID')}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-tab Content: DAILY */}
+              {reportSubTab === 'DAILY' && (
+                <div className="bg-white rounded-3xl border border-[#f0f2f5] overflow-hidden">
+                  <div className="p-6 border-b border-[#f0f2f5] flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-md-on-surface">Rekapitulasi Penjualan Harian</h4>
+                      <p className="text-xs text-md-on-surface-variant">Akumulasi transaksi dan omzet dikelompokkan per tanggal</p>
+                    </div>
+                  </div>
+                  {dailyReportList.length === 0 ? (
+                    <div className="p-12 text-center text-xs text-md-on-surface-variant">
+                      Tidak ada data penjualan pada periode ini.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-[#f0f2f5] bg-md-surface-variant/20 font-semibold text-md-on-surface-variant">
+                            <th className="py-3 px-4">Tanggal</th>
+                            <th className="py-3 px-4 text-center">Jumlah Pesanan</th>
+                            <th className="py-3 px-4 text-center">Unit Terjual</th>
+                            <th className="py-3 px-4 text-right">Penjualan Kotor</th>
+                            <th className="py-3 px-4 text-right">Potongan Diskon</th>
+                            <th className="py-3 px-4 text-right font-bold text-md-on-surface">Penjualan Bersih</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f0f2f5]">
+                          {dailyReportList.map((day) => (
+                            <tr key={day.date} className="hover:bg-md-surface-variant/10">
+                              <td className="py-3 px-4 font-semibold text-md-on-surface font-mono">
+                                {new Date(day.date).toLocaleDateString('id-ID', {
+                                  weekday: 'short',
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })}
+                              </td>
+                              <td className="py-3 px-4 text-center font-mono">{day.ordersCount}</td>
+                              <td className="py-3 px-4 text-center font-mono">{day.itemsCount}</td>
+                              <td className="py-3 px-4 text-right font-mono">Rp {day.gross.toLocaleString('id-ID')}</td>
+                              <td className="py-3 px-4 text-right font-mono text-rose-600">
+                                {day.discount > 0 ? `-Rp ${day.discount.toLocaleString('id-ID')}` : '-'}
+                              </td>
+                              <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                                Rp {day.net.toLocaleString('id-ID')}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-[#f7f9fc] font-bold text-md-on-surface border-t-2 border-[#f0f2f5]">
+                            <td className="py-3 px-4">Total ({dailyReportList.length} Hari)</td>
+                            <td className="py-3 px-4 text-center font-mono">{reportTotalOrders}</td>
+                            <td className="py-3 px-4 text-center font-mono">{reportTotalItemsSold}</td>
+                            <td className="py-3 px-4 text-right font-mono">Rp {reportGrossSales.toLocaleString('id-ID')}</td>
+                            <td className="py-3 px-4 text-right font-mono text-rose-600">
+                              -Rp {reportTotalDiscount.toLocaleString('id-ID')}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono text-emerald-700">
+                              Rp {reportNetSales.toLocaleString('id-ID')}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -2240,6 +3299,7 @@ export default function AdminDashboardPage() {
                 <input
                   type="text"
                   required
+                  placeholder="Contoh: Single Origin Espresso"
                   value={productForm.name}
                   onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
                   className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs text-md-on-surface outline-none"
@@ -2248,21 +3308,26 @@ export default function AdminDashboardPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-md-on-surface">SKU</label>
+                  <label className="text-xs font-semibold text-md-on-surface">Kategori</label>
+                  <select
+                    value={productForm.categoryName}
+                    onChange={(e) => setProductForm({ ...productForm, categoryName: e.target.value })}
+                    className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs text-md-on-surface outline-none font-medium"
+                  >
+                    {categoriesList.map((cat) => (
+                      <option key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-md-on-surface">SKU Produk</label>
                   <input
                     type="text"
                     required
                     value={productForm.sku}
                     onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
-                    className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-mono text-md-on-surface outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-md-on-surface">Barcode</label>
-                  <input
-                    type="text"
-                    value={productForm.barcode}
-                    onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
                     className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-mono text-md-on-surface outline-none"
                   />
                 </div>
@@ -2281,6 +3346,19 @@ export default function AdminDashboardPage() {
                   />
                 </div>
                 <div className="space-y-1">
+                  <label className="text-xs font-semibold text-md-on-surface">Harga Pokok / Modal (Rp)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={productForm.costPrice}
+                    onChange={(e) => setProductForm({ ...productForm, costPrice: Number(e.target.value) })}
+                    className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-mono text-md-on-surface outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
                   <label className="text-xs font-semibold text-md-on-surface">Stok Awal</label>
                   <input
                     type="number"
@@ -2290,27 +3368,163 @@ export default function AdminDashboardPage() {
                     className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-mono text-md-on-surface outline-none"
                   />
                 </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-md-on-surface">Batas Peringatan Stok Kritis</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={productForm.minStockAlert}
+                    onChange={(e) => setProductForm({ ...productForm, minStockAlert: Number(e.target.value) })}
+                    className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-mono text-md-on-surface outline-none"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-md-on-surface">Kategori</label>
-                <select
-                  value={productForm.categoryName}
-                  onChange={(e) => setProductForm({ ...productForm, categoryName: e.target.value })}
-                  className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs text-md-on-surface outline-none"
-                >
-                  <option value="Coffee">Coffee</option>
-                  <option value="Bakery">Bakery</option>
-                  <option value="Meals">Meals</option>
-                  <option value="Tea">Tea</option>
-                  <option value="Snacks">Snacks</option>
-                </select>
+                <label className="text-xs font-semibold text-md-on-surface">Barcode / EAN (Opsional)</label>
+                <input
+                  type="text"
+                  value={productForm.barcode}
+                  onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
+                  placeholder="899..."
+                  className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-mono text-md-on-surface outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-md-on-surface">Deskripsi Singkat</label>
+                <textarea
+                  rows={2}
+                  value={productForm.description}
+                  onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                  placeholder="Karakter rasa, bahan baku, atau catatan sajian..."
+                  className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs text-md-on-surface outline-none resize-none"
+                />
               </div>
 
               <button type="submit" className="w-full inline-flex items-center justify-center flex-row whitespace-nowrap py-2.5 rounded-full bg-md-primary hover:bg-md-primary-hover text-white text-xs font-semibold mt-3">
                 {editingProduct ? 'Perbarui Produk' : 'Simpan Produk Baru'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Category Form Modal */}
+      {categoryModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-[#f0f2f5] p-6 rounded-3xl max-w-md w-full space-y-4 shadow-xl">
+            <div className="flex justify-between items-center pb-3 border-b border-[#f0f2f5]">
+              <h3 className="text-base font-bold text-md-on-surface">
+                {editingCategory ? 'Perbarui Kategori' : 'Tambah Kategori Baru'}
+              </h3>
+              <button
+                onClick={() => setCategoryModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-[#f0f4f9] text-md-on-surface-variant"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategory} className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-md-on-surface">Nama Kategori</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Kopi & Minuman"
+                  value={categoryForm.name}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const autoSlug = val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                    setCategoryForm({
+                      ...categoryForm,
+                      name: val,
+                      slug: editingCategory ? categoryForm.slug : autoSlug,
+                    });
+                  }}
+                  className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs text-md-on-surface outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-md-on-surface">Slug URL</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="kopi-minuman"
+                  value={categoryForm.slug}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, slug: e.target.value })}
+                  className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-mono text-md-on-surface outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-md-on-surface">Tema Warna Badge</label>
+                <select
+                  value={categoryForm.color}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, color: e.target.value })}
+                  className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs text-md-on-surface outline-none"
+                >
+                  <option value="amber">Amber (Kopi / Minuman Hangat)</option>
+                  <option value="orange">Orange (Pastry / Bakery)</option>
+                  <option value="rose">Rose (Makanan Berat / Utama)</option>
+                  <option value="emerald">Emerald (Teh / Herbal)</option>
+                  <option value="blue">Blue (Snack / Camilan)</option>
+                  <option value="purple">Purple (Spesial / Seasonal)</option>
+                  <option value="slate">Slate (Netral / Umum)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-md-on-surface">Deskripsi Kategori</label>
+                <textarea
+                  rows={2}
+                  value={categoryForm.description}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+                  placeholder="Keterangan kategori menu..."
+                  className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs text-md-on-surface outline-none resize-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full inline-flex items-center justify-center flex-row whitespace-nowrap py-2.5 rounded-full bg-md-primary hover:bg-md-primary-hover text-white text-xs font-semibold mt-3"
+              >
+                {editingCategory ? 'Perbarui Kategori' : 'Simpan Kategori Baru'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Category Confirmation Modal */}
+      {deleteCategoryModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-[#f0f2f5] p-6 rounded-3xl max-w-sm w-full space-y-4 shadow-xl">
+            <div className="flex items-center space-x-3 text-red-600 pb-2 border-b border-[#f0f2f5]">
+              <AlertTriangle className="w-5 h-5" />
+              <h3 className="text-sm font-bold text-md-on-surface">Hapus Kategori</h3>
+            </div>
+            <p className="text-xs text-md-on-surface-variant">
+              Apakah Anda yakin ingin menghapus kategori <span className="font-bold text-md-on-surface">&quot;{deleteCategoryModal.name}&quot;</span>?
+            </p>
+            <div className="flex space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteCategoryModal(null)}
+                className="flex-1 py-2.5 rounded-full border border-[#e0e2ec] text-xs font-semibold text-md-on-surface hover:bg-[#f0f4f9]"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteCategory(deleteCategoryModal)}
+                className="flex-1 py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold"
+              >
+                Hapus Kategori
+              </button>
+            </div>
           </div>
         </div>
       )}

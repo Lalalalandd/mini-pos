@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { restFetch } from '@/lib/api-client';
+import { addStoredOrder } from '@/lib/orders-store';
 
 interface Product {
   id: string;
@@ -279,6 +280,30 @@ export default function PosTerminalPage() {
       }));
 
       setCompletedOrder(result);
+      if (result && result.orderNumber) {
+        addStoredOrder({
+          id: result.id || `ord-${Date.now()}`,
+          orderNumber: result.orderNumber,
+          source: 'POS',
+          status: result.status || 'COMPLETED',
+          totalAmount: result.totalAmount || grandTotal,
+          discountAmount: result.discountAmount || 0,
+          finalAmount: result.finalAmount || grandTotal,
+          paymentMethod: result.paymentMethod || paymentMethod,
+          paymentStatus: result.paymentStatus || 'PAID',
+          customerName: result.customerName || customerName,
+          createdAt: result.createdAt || new Date().toISOString(),
+          items: (result.items || []).map((i: any, idx: number) => ({
+            id: i.id || `item-${Date.now()}-${idx}`,
+            productName: i.productName || 'Produk',
+            productSku: i.productSku || 'SKU-001',
+            price: i.price || 0,
+            quantity: i.quantity || 1,
+            discount: i.discount || 0,
+            subtotal: i.subtotal || (i.price || 0) * (i.quantity || 1),
+          })),
+        });
+      }
       setPaymentModalOpen(false);
       setCart([]);
       toast.success(`Transaksi berhasil. No: ${result.orderNumber || 'POS'}`);
