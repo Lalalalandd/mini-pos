@@ -11,10 +11,12 @@ import {
   ShieldCheck,
   LogOut,
 } from 'lucide-react';
+import { useCart } from '@/context/CartContext';
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
+  const { openCart, totalItems } = useCart();
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export function Header() {
   const logoHref = isAdmin ? '/admin/dashboard' : isCashier ? '/pos' : '/catalog';
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-[#f0f2f5] px-4 sm:px-8 py-2.5 shadow-none">
+    <header className="sticky top-0 z-30 bg-white border-b border-[#f0f2f5] px-4 sm:px-8 py-2.5 shadow-none">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         {/* Brand App Bar */}
         <Link href={logoHref} className="flex items-center space-x-3 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0b57d0] rounded-xl p-1">
@@ -127,17 +129,35 @@ export function Header() {
           )}
 
           {isCustomerOrPublic && (
-            <Link
-              href="/catalog"
-              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                pathname.startsWith('/catalog')
-                  ? 'bg-[#d3e3fd] text-[#041e49]'
-                  : 'bg-white text-[#444746] border border-[#e0e2ec] hover:bg-[#f0f4f9]'
-              }`}
-            >
-              <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
-              <span>Katalog Belanja</span>
-            </Link>
+            <div className="flex items-center space-x-2">
+              <Link
+                href="/catalog"
+                className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  pathname.startsWith('/catalog')
+                    ? 'bg-[#d3e3fd] text-[#041e49]'
+                    : 'bg-white text-[#444746] border border-[#f0f2f5] hover:bg-[#f0f4f9]'
+                }`}
+              >
+                <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+                <span>Katalog Belanja</span>
+              </Link>
+
+              <button
+                type="button"
+                onClick={openCart}
+                className="relative flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white border border-[#f0f2f5] text-[#1f1f1f] hover:bg-[#f0f4f9] transition-all"
+                title="Lihat Keranjang Belanja"
+                aria-label="Lihat Keranjang Belanja"
+              >
+                <ShoppingBag className="w-3.5 h-3.5 text-[#0b57d0] shrink-0" />
+                <span>Keranjang</span>
+                {totalItems > 0 && (
+                  <span className="ml-1 px-1.5 py-0.2 rounded-full bg-[#0b57d0] text-white text-[10px] font-bold font-mono">
+                    {totalItems}
+                  </span>
+                )}
+              </button>
+            </div>
           )}
 
           {/* Profile Chip & Auth */}

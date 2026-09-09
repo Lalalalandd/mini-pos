@@ -37,10 +37,10 @@ export default function HomePage() {
           {/* Card 1: POS Terminal */}
           <Link
             href="/pos"
-            className="m3-card-elevated p-6 flex flex-col justify-between group border border-[#e0e2ec] hover:border-[#0b57d0] transition-all"
+            className="m3-card-elevated p-6 flex flex-col justify-between group border border-[#f0f2f5] hover:border-[#0b57d0] transition-all shadow-none"
           >
             <div>
-              <div className="w-12 h-12 rounded-2xl bg-[#d3e3fd] text-[#0b57d0] flex items-center justify-center mb-5 group-hover:bg-[#0b57d0] group-hover:text-white transition-colors shadow-sm">
+              <div className="w-12 h-12 rounded-2xl bg-[#d3e3fd] text-[#0b57d0] flex items-center justify-center mb-5 group-hover:bg-[#0b57d0] group-hover:text-white transition-colors">
                 <Terminal className="w-6 h-6" />
               </div>
               <div className="flex items-center justify-between mb-2">
@@ -62,10 +62,10 @@ export default function HomePage() {
           {/* Card 2: E-Commerce Storefront */}
           <Link
             href="/catalog"
-            className="m3-card-elevated p-6 flex flex-col justify-between group border border-[#e0e2ec] hover:border-[#0b57d0] transition-all"
+            className="m3-card-elevated p-6 flex flex-col justify-between group border border-[#f0f2f5] hover:border-[#0b57d0] transition-all shadow-none"
           >
             <div>
-              <div className="w-12 h-12 rounded-2xl bg-[#d3e3fd] text-[#0b57d0] flex items-center justify-center mb-5 group-hover:bg-[#0b57d0] group-hover:text-white transition-colors shadow-sm">
+              <div className="w-12 h-12 rounded-2xl bg-[#d3e3fd] text-[#0b57d0] flex items-center justify-center mb-5 group-hover:bg-[#0b57d0] group-hover:text-white transition-colors">
                 <ShoppingBag className="w-6 h-6" />
               </div>
               <div className="flex items-center justify-between mb-2">
@@ -87,10 +87,10 @@ export default function HomePage() {
           {/* Card 3: Admin Operations */}
           <Link
             href="/admin/dashboard"
-            className="m3-card-elevated p-6 flex flex-col justify-between group border border-[#e0e2ec] hover:border-[#0b57d0] transition-all"
+            className="m3-card-elevated p-6 flex flex-col justify-between group border border-[#f0f2f5] hover:border-[#0b57d0] transition-all shadow-none"
           >
             <div>
-              <div className="w-12 h-12 rounded-2xl bg-[#d3e3fd] text-[#0b57d0] flex items-center justify-center mb-5 group-hover:bg-[#0b57d0] group-hover:text-white transition-colors shadow-sm">
+              <div className="w-12 h-12 rounded-2xl bg-[#d3e3fd] text-[#0b57d0] flex items-center justify-center mb-5 group-hover:bg-[#0b57d0] group-hover:text-white transition-colors">
                 <ShieldCheck className="w-6 h-6" />
               </div>
               <div className="flex items-center justify-between mb-2">
@@ -112,19 +112,19 @@ export default function HomePage() {
 
         {/* Material 3 Assist Chips */}
         <div className="pt-4 flex flex-wrap items-center justify-center gap-2.5 text-xs text-[#444746]">
-          <span className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white border border-[#e0e2ec] shadow-sm">
+          <span className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white border border-[#f0f2f5] shadow-none">
             <Zap className="w-3.5 h-3.5 text-[#0b57d0]" />
             <span>Next.js 15 App Router</span>
           </span>
-          <span className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white border border-[#e0e2ec] shadow-sm">
+          <span className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white border border-[#f0f2f5] shadow-none">
             <Cpu className="w-3.5 h-3.5 text-[#0b57d0]" />
             <span>NestJS REST & GraphQL</span>
           </span>
-          <span className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white border border-[#e0e2ec] shadow-sm">
+          <span className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white border border-[#f0f2f5] shadow-none">
             <Database className="w-3.5 h-3.5 text-[#0b57d0]" />
             <span>PostgreSQL & Drizzle ORM</span>
           </span>
-          <span className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white border border-[#e0e2ec] shadow-sm">
+          <span className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white border border-[#f0f2f5] shadow-none">
             <Layers className="w-3.5 h-3.5 text-[#0b57d0]" />
             <span>Redis & BullMQ Engine</span>
           </span>

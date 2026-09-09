@@ -4,6 +4,7 @@ import './globals.css';
 import 'react-toastify/dist/ReactToastify.css';
 import { Header } from '@/components/Header';
 import { ToastProvider } from '@/components/ToastProvider';
+import { CartProvider } from '@/context/CartContext';
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -25,9 +26,11 @@ export default function RootLayout({
   return (
     <html lang="id" className={plusJakartaSans.variable}>
       <body className={`${plusJakartaSans.className} min-h-screen bg-[#f7f9fc] text-[#1f1f1f] flex flex-col font-sans antialiased`}>
-        <Header />
-        <main className="flex-1 flex flex-col">{children}</main>
-        <ToastProvider />
+        <CartProvider>
+          <Header />
+          <main className="flex-1 flex flex-col">{children}</main>
+          <ToastProvider />
+        </CartProvider>
       </body>
     </html>
   );

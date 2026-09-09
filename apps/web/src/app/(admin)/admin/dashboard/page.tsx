@@ -27,8 +27,22 @@ import {
   AlertTriangle,
   UserPlus,
   DollarSign,
+  Tag,
+  Percent,
+  Settings,
+  Check,
+  Sparkles,
 } from 'lucide-react';
 import { restFetch } from '@/lib/api-client';
+import {
+  PromoCode,
+  TaxSettings,
+  getStoredPromos,
+  saveStoredPromos,
+  getStoredTaxSettings,
+  saveStoredTaxSettings,
+  DEFAULT_TAX_SETTINGS,
+} from '@/lib/promo-tax-store';
 
 interface Product {
   id: string;
@@ -92,7 +106,7 @@ interface UserAccount {
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [navSection, setNavSection] = useState<'OVERVIEW' | 'PRODUCTS' | 'INVENTORY' | 'ORDERS' | 'REPORTS' | 'USERS'>('OVERVIEW');
+  const [navSection, setNavSection] = useState<'OVERVIEW' | 'PRODUCTS' | 'INVENTORY' | 'ORDERS' | 'REPORTS' | 'USERS' | 'PROMOS_TAX'>('OVERVIEW');
   const [loading, setLoading] = useState(false);
 
   const [productsList, setProductsList] = useState<Product[]>([]);
@@ -100,6 +114,35 @@ export default function AdminDashboardPage() {
   const [reportsData, setReportsData] = useState<any>(null);
   const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([]);
   const [usersList, setUsersList] = useState<UserAccount[]>([]);
+
+  // Promos & Tax State
+  const [promosList, setPromosList] = useState<PromoCode[]>([]);
+  const [taxSettings, setTaxSettings] = useState<TaxSettings>(DEFAULT_TAX_SETTINGS);
+  const [promoSubTab, setPromoSubTab] = useState<'PROMOS' | 'TAX'>('PROMOS');
+  const [promoSearch, setPromoSearch] = useState('');
+  const [promoStatusFilter, setPromoStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [promoModalOpen, setPromoModalOpen] = useState(false);
+  const [editingPromo, setEditingPromo] = useState<PromoCode | null>(null);
+  const [deletePromoModal, setDeletePromoModal] = useState<PromoCode | null>(null);
+  const [promoForm, setPromoForm] = useState<{
+    code: string;
+    description: string;
+    discountType: 'PERCENTAGE' | 'FIXED';
+    discountValue: number;
+    minPurchase: number;
+    maxDiscount: number | '';
+    validUntil: string;
+    isActive: boolean;
+  }>({
+    code: '',
+    description: '',
+    discountType: 'PERCENTAGE',
+    discountValue: 10,
+    minPurchase: 0,
+    maxDiscount: '',
+    validUntil: '',
+    isActive: true,
+  });
 
   const [productSearch, setProductSearch] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState('ALL');
@@ -296,6 +339,10 @@ export default function AdminDashboardPage() {
 
     loadData();
     setInventoryMovements(initialMovements);
+    if (typeof window !== 'undefined') {
+      setPromosList(getStoredPromos());
+      setTaxSettings(getStoredTaxSettings());
+    }
   }, []);
 
   const totalSalesAmount = ordersList.filter((o) => o.status === 'COMPLETED').reduce((sum, o) => sum + o.finalAmount, 0);
@@ -617,6 +664,127 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleTogglePromoStatus = (promoId: string) => {
+    const updated = promosList.map((p) => (p.id === promoId ? { ...p, isActive: !p.isActive } : p));
+    setPromosList(updated);
+    saveStoredPromos(updated);
+    toast.success('Status keaktifan promo diperbarui');
+  };
+
+  const handleOpenCreatePromo = () => {
+    setEditingPromo(null);
+    setPromoForm({
+      code: '',
+      description: '',
+      discountType: 'PERCENTAGE',
+      discountValue: 10,
+      minPurchase: 0,
+      maxDiscount: '',
+      validUntil: '2026-12-31',
+      isActive: true,
+    });
+    setPromoModalOpen(true);
+  };
+
+  const handleOpenEditPromo = (p: PromoCode) => {
+    setEditingPromo(p);
+    setPromoForm({
+      code: p.code,
+      description: p.description || '',
+      discountType: p.discountType,
+      discountValue: p.discountValue,
+      minPurchase: p.minPurchase,
+      maxDiscount: p.maxDiscount ?? '',
+      validUntil: p.validUntil ? p.validUntil.substring(0, 10) : '',
+      isActive: p.isActive,
+    });
+    setPromoModalOpen(true);
+  };
+
+  const handleSavePromo = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCode = promoForm.code.trim().toUpperCase();
+    if (!cleanCode) {
+      toast.error('Kode promo tidak boleh kosong');
+      return;
+    }
+
+    if (editingPromo) {
+      const collision = promosList.find((p) => p.code === cleanCode && p.id !== editingPromo.id);
+      if (collision) {
+        toast.error('Kode promo tersebut sudah digunakan');
+        return;
+      }
+      const updated = promosList.map((p) => {
+        if (p.id === editingPromo.id) {
+          return {
+            ...p,
+            code: cleanCode,
+            description: promoForm.description,
+            discountType: promoForm.discountType,
+            discountValue: Number(promoForm.discountValue) || 0,
+            minPurchase: Number(promoForm.minPurchase) || 0,
+            maxDiscount: promoForm.maxDiscount !== '' ? Number(promoForm.maxDiscount) : undefined,
+            validUntil: promoForm.validUntil || '2026-12-31',
+            isActive: promoForm.isActive,
+          };
+        }
+        return p;
+      });
+      setPromosList(updated);
+      saveStoredPromos(updated);
+      toast.success(`Promo ${cleanCode} berhasil diperbarui`);
+    } else {
+      if (promosList.some((p) => p.code === cleanCode)) {
+        toast.error('Kode promo tersebut sudah ada');
+        return;
+      }
+      const newPromo: PromoCode = {
+        id: `prm-${Date.now()}`,
+        code: cleanCode,
+        description: promoForm.description || `Diskon ${promoForm.discountValue}${promoForm.discountType === 'PERCENTAGE' ? '%' : ' Rupiah'}`,
+        discountType: promoForm.discountType,
+        discountValue: Number(promoForm.discountValue) || 0,
+        minPurchase: Number(promoForm.minPurchase) || 0,
+        maxDiscount: promoForm.maxDiscount !== '' ? Number(promoForm.maxDiscount) : undefined,
+        usageCount: 0,
+        validUntil: promoForm.validUntil || '2026-12-31',
+        isActive: promoForm.isActive,
+      };
+      const updated = [newPromo, ...promosList];
+      setPromosList(updated);
+      saveStoredPromos(updated);
+      toast.success(`Promo ${cleanCode} berhasil dibuat`);
+    }
+    setPromoModalOpen(false);
+  };
+
+  const handleDeletePromo = () => {
+    if (!deletePromoModal) return;
+    const updated = promosList.filter((p) => p.id !== deletePromoModal.id);
+    setPromosList(updated);
+    saveStoredPromos(updated);
+    toast.success(`Promo ${deletePromoModal.code} berhasil dihapus`);
+    setDeletePromoModal(null);
+  };
+
+  const handleSaveTaxSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveStoredTaxSettings(taxSettings);
+    toast.success('Pengaturan pajak & biaya operasional berhasil disimpan!');
+  };
+
+  const filteredPromos = promosList.filter((p) => {
+    const matchStatus =
+      promoStatusFilter === 'ALL' ||
+      (promoStatusFilter === 'ACTIVE' && p.isActive) ||
+      (promoStatusFilter === 'INACTIVE' && !p.isActive);
+    const matchSearch =
+      p.code.toLowerCase().includes(promoSearch.toLowerCase()) ||
+      (p.description && p.description.toLowerCase().includes(promoSearch.toLowerCase()));
+    return matchStatus && matchSearch;
+  });
+
   const filteredProducts = productsList.filter((p) => {
     const matchCat = productCategoryFilter === 'ALL' || p.categoryName === productCategoryFilter;
     const matchSearch =
@@ -678,6 +846,7 @@ export default function AdminDashboardPage() {
             {navSection === 'ORDERS' && 'Manajemen Pesanan'}
             {navSection === 'REPORTS' && 'Laporan Penjualan'}
             {navSection === 'USERS' && 'Manajemen Akun'}
+            {navSection === 'PROMOS_TAX' && 'Promo & Pengaturan Pajak'}
           </span>
         </div>
 
@@ -803,6 +972,23 @@ export default function AdminDashboardPage() {
               </div>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#f0f4f9] text-md-on-surface font-semibold">
                 {usersList.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setNavSection('PROMOS_TAX')}
+              className={`w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                navSection === 'PROMOS_TAX'
+                  ? 'bg-md-primary-container text-md-on-primary-container font-bold'
+                  : 'text-md-on-surface-variant hover:text-md-on-surface hover:bg-[#f0f4f9]'
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                <Tag className="w-4 h-4 text-md-primary shrink-0" />
+                <span>Promo & Pajak</span>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#f0f4f9] text-md-on-surface font-semibold">
+                {promosList.length}
               </span>
             </button>
 
@@ -1533,6 +1719,502 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           )}
+
+          {/* Section: Promo Codes & Tax Settings */}
+          {navSection === 'PROMOS_TAX' && (
+            <div className="space-y-6">
+              {/* Header Title & Subtabs */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-md-on-surface">Promo & Pengaturan Operasional</h2>
+                  <p className="text-xs text-md-on-surface-variant mt-0.5">
+                    Kelola diskon promosi toko dan konfigurasi tarif pajak PPN serta biaya layanan kasir / online.
+                  </p>
+                </div>
+
+                {/* Sub-tab Switcher */}
+                <div className="inline-flex p-1 bg-[#eceef4] rounded-2xl border border-[#e0e2ec]">
+                  <button
+                    type="button"
+                    onClick={() => setPromoSubTab('PROMOS')}
+                    className={`inline-flex items-center px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      promoSubTab === 'PROMOS'
+                        ? 'bg-white text-md-primary shadow-xs'
+                        : 'text-md-on-surface-variant hover:text-md-on-surface'
+                    }`}
+                  >
+                    <Tag className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                    <span>Kode Promo ({promosList.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPromoSubTab('TAX')}
+                    className={`inline-flex items-center px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      promoSubTab === 'TAX'
+                        ? 'bg-white text-md-primary shadow-xs'
+                        : 'text-md-on-surface-variant hover:text-md-on-surface'
+                    }`}
+                  >
+                    <Percent className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                    <span>Pajak & Biaya Layanan</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Subtab 1: PROMO CODE MANAGEMENT */}
+              {promoSubTab === 'PROMOS' && (
+                <div className="space-y-5">
+                  {/* KPI Cards for Promos */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-4 rounded-3xl bg-white border border-[#f0f2f5] shadow-none space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-md-on-surface-variant font-medium">Total Promo Terdaftar</span>
+                        <Tag className="w-4 h-4 text-md-primary" />
+                      </div>
+                      <div className="text-2xl font-black text-md-on-surface">{promosList.length}</div>
+                      <p className="text-[11px] text-md-on-surface-variant">Voucher promosi tersimpan</p>
+                    </div>
+
+                    <div className="p-4 rounded-3xl bg-white border border-[#f0f2f5] shadow-none space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-md-on-surface-variant font-medium">Promo Aktif Saat Ini</span>
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      </div>
+                      <div className="text-2xl font-black text-emerald-600">
+                        {promosList.filter((p) => p.isActive).length}
+                      </div>
+                      <p className="text-[11px] text-md-on-surface-variant">Dapat langsung digunakan checkout</p>
+                    </div>
+
+                    <div className="p-4 rounded-3xl bg-white border border-[#f0f2f5] shadow-none space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-md-on-surface-variant font-medium">Total Klaim / Penggunaan</span>
+                        <Sparkles className="w-4 h-4 text-amber-500" />
+                      </div>
+                      <div className="text-2xl font-black text-md-on-surface">
+                        {promosList.reduce((sum, p) => sum + (p.usageCount || 0), 0)}x
+                      </div>
+                      <p className="text-[11px] text-md-on-surface-variant">Transaksi memanfaatkan promo</p>
+                    </div>
+                  </div>
+
+                  {/* Filter & Action Toolbar */}
+                  <div className="bg-white border border-[#f0f2f5] p-4 rounded-3xl flex flex-wrap items-center justify-between gap-3 shadow-none">
+                    <div className="flex flex-wrap items-center gap-3 flex-1">
+                      <div className="relative flex-1 min-w-[200px] max-w-sm">
+                        <Search className="w-4 h-4 text-md-on-surface-variant absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder="Cari kode promo atau deskripsi..."
+                          value={promoSearch}
+                          onChange={(e) => setPromoSearch(e.target.value)}
+                          className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-full pl-9 pr-4 py-2 text-xs outline-none focus:border-md-primary transition-colors"
+                        />
+                      </div>
+
+                      <select
+                        value={promoStatusFilter}
+                        onChange={(e) => setPromoStatusFilter(e.target.value as any)}
+                        className="bg-[#f7f9fc] border border-[#e0e2ec] rounded-full px-3.5 py-2 text-xs outline-none font-semibold text-md-on-surface"
+                      >
+                        <option value="ALL">Semua Status</option>
+                        <option value="ACTIVE">Hanya Aktif</option>
+                        <option value="INACTIVE">Non-Aktif</option>
+                      </select>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenCreatePromo}
+                      className="inline-flex items-center justify-center flex-row whitespace-nowrap text-xs font-semibold py-2 px-4 rounded-full bg-md-primary text-white hover:bg-md-primary-hover shadow-none transition-all"
+                    >
+                      <Plus className="w-4 h-4 mr-1.5 shrink-0" />
+                      <span>Tambah Kode Promo</span>
+                    </button>
+                  </div>
+
+                  {/* Promo Table */}
+                  <div className="bg-white border border-[#f0f2f5] rounded-3xl overflow-hidden shadow-none">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs text-md-on-surface">
+                        <thead className="bg-[#f7f9fc] border-b border-[#f0f2f5] text-[11px] font-bold text-md-on-surface-variant uppercase">
+                          <tr>
+                            <th className="p-4">Kode Promo</th>
+                            <th className="p-4">Besaran Diskon</th>
+                            <th className="p-4">Syarat & Batas</th>
+                            <th className="p-4">Pemakaian</th>
+                            <th className="p-4">Masa Berlaku</th>
+                            <th className="p-4 text-center">Status</th>
+                            <th className="p-4 text-right">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f0f2f5]">
+                          {filteredPromos.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="p-8 text-center text-md-on-surface-variant">
+                                Tidak ada kode promo yang cocok dengan pencarian atau filter.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredPromos.map((p) => (
+                              <tr key={p.id} className="hover:bg-[#f7f9fc]/60 transition-colors">
+                                <td className="p-4">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="font-mono font-bold text-xs px-2.5 py-1 bg-md-primary/10 text-md-primary rounded-lg border border-md-primary/20 tracking-wider">
+                                      {p.code}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard?.writeText(p.code);
+                                        toast.info(`Kode ${p.code} disalin ke papan klip!`);
+                                      }}
+                                      title="Salin kode promo"
+                                      className="p-1 rounded-md text-md-on-surface-variant hover:bg-[#f0f4f9] hover:text-md-primary transition-colors"
+                                    >
+                                      <Tag className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                  <p className="font-semibold text-xs text-md-on-surface mt-1">{p.description}</p>
+                                </td>
+
+                                <td className="p-4">
+                                  {p.discountType === 'PERCENTAGE' ? (
+                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                      Diskon {p.discountValue}%
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                                      Potongan Rp {p.discountValue.toLocaleString('id-ID')}
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="p-4 space-y-0.5 text-[11px]">
+                                  <div className="text-md-on-surface">
+                                    Min. Belanja: <span className="font-semibold">{p.minPurchase > 0 ? `Rp ${p.minPurchase.toLocaleString('id-ID')}` : 'Rp 0'}</span>
+                                  </div>
+                                  {p.discountType === 'PERCENTAGE' && p.maxDiscount && (
+                                    <div className="text-md-on-surface-variant">
+                                      Maks. Diskon: <span className="font-semibold">Rp {p.maxDiscount.toLocaleString('id-ID')}</span>
+                                    </div>
+                                  )}
+                                </td>
+
+                                <td className="p-4 text-[11px]">
+                                  <span className="font-semibold text-md-on-surface">{p.usageCount || 0}x</span>
+                                  <span className="text-md-on-surface-variant"> klaim</span>
+                                </td>
+
+                                <td className="p-4 text-[11px] font-mono text-md-on-surface-variant">
+                                  {p.validUntil ? (
+                                    <span>
+                                      s/d {new Date(p.validUntil).toLocaleDateString('id-ID', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        year: 'numeric',
+                                      })}
+                                    </span>
+                                  ) : (
+                                    <span className="text-emerald-700 font-medium">Selamanya</span>
+                                  )}
+                                </td>
+
+                                <td className="p-4 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTogglePromoStatus(p.id)}
+                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors ${
+                                      p.isActive
+                                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                                        : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                                    }`}
+                                  >
+                                    {p.isActive ? '● Aktif' : '○ Non-Aktif'}
+                                  </button>
+                                </td>
+
+                                <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
+                                  <button
+                                    onClick={() => handleOpenEditPromo(p)}
+                                    className="p-1.5 rounded-full hover:bg-[#f0f4f9] text-md-on-surface-variant hover:text-md-primary transition-colors"
+                                    aria-label="Edit promo"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDeletePromoModal(p)}
+                                    className="p-1.5 rounded-full hover:bg-red-50 text-md-on-surface-variant hover:text-red-600 transition-colors"
+                                    aria-label="Hapus promo"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Subtab 2: TAX & SERVICE CHARGE SETTINGS */}
+              {promoSubTab === 'TAX' && (
+                <form onSubmit={handleSaveTaxSettings} className="space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Left Settings Column */}
+                    <div className="lg:col-span-8 space-y-5">
+                      {/* Card 1: PPN / Tax Settings */}
+                      <div className="bg-white border border-[#f0f2f5] p-6 rounded-3xl space-y-4 shadow-none">
+                        <div className="flex items-start justify-between pb-3 border-b border-[#f0f2f5]">
+                          <div>
+                            <h3 className="text-sm font-bold text-md-on-surface flex items-center">
+                              <Percent className="w-4 h-4 mr-2 text-md-primary" />
+                              Pajak Pertambahan Nilai (PPN / Sales Tax)
+                            </h3>
+                            <p className="text-xs text-md-on-surface-variant mt-0.5">
+                              Atur pembebanan pajak negara untuk semua pesanan transaksi POS dan Web.
+                            </p>
+                          </div>
+
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={taxSettings.ppnEnabled}
+                              onChange={(e) => setTaxSettings({ ...taxSettings, ppnEnabled: e.target.checked })}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-md-primary"></div>
+                          </label>
+                        </div>
+
+                        {taxSettings.ppnEnabled ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                            <div className="space-y-1">
+                              <label className="text-xs font-semibold text-md-on-surface">Tarif Pajak PPN (%)</label>
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.1"
+                                  required
+                                  value={taxSettings.ppnRate}
+                                  onChange={(e) => setTaxSettings({ ...taxSettings, ppnRate: Number(e.target.value) || 0 })}
+                                  className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-bold outline-none focus:border-md-primary"
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-md-on-surface-variant font-bold">%</span>
+                              </div>
+                              <p className="text-[10px] text-md-on-surface-variant">Standar perpajakan umum: 11% atau 12%</p>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-xs font-semibold text-md-on-surface">Mode Perhitungan Pajak</label>
+                              <select
+                                value={taxSettings.ppnType}
+                                onChange={(e) => setTaxSettings({ ...taxSettings, ppnType: e.target.value as any })}
+                                className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-semibold outline-none focus:border-md-primary"
+                              >
+                                <option value="EXCLUSIVE">Exclusive (Ditambahkan di luar harga produk)</option>
+                                <option value="INCLUSIVE">Inclusive (Harga produk sudah termasuk pajak)</option>
+                              </select>
+                              <p className="text-[10px] text-md-on-surface-variant">Umumnya POS menggunakan mode Exclusive</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-amber-50/60 rounded-2xl border border-amber-200/60 text-xs text-amber-800">
+                            Pajak PPN saat ini dinonaktifkan. Transaksi tidak akan mengenakan pajak tambahan.
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card 2: Service Charge Settings */}
+                      <div className="bg-white border border-[#f0f2f5] p-6 rounded-3xl space-y-4 shadow-none">
+                        <div className="flex items-start justify-between pb-3 border-b border-[#f0f2f5]">
+                          <div>
+                            <h3 className="text-sm font-bold text-md-on-surface flex items-center">
+                              <DollarSign className="w-4 h-4 mr-2 text-md-primary" />
+                              Biaya Layanan (Service Charge)
+                            </h3>
+                            <p className="text-xs text-md-on-surface-variant mt-0.5">
+                              Biaya operasional tambahan atau service fee untuk pesanan.
+                            </p>
+                          </div>
+
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={taxSettings.serviceChargeEnabled}
+                              onChange={(e) => setTaxSettings({ ...taxSettings, serviceChargeEnabled: e.target.checked })}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-md-primary"></div>
+                          </label>
+                        </div>
+
+                        {taxSettings.serviceChargeEnabled ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                            <div className="space-y-1">
+                              <label className="text-xs font-semibold text-md-on-surface">Tarif Biaya Layanan (%)</label>
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.5"
+                                  required
+                                  value={taxSettings.serviceChargeRate}
+                                  onChange={(e) => setTaxSettings({ ...taxSettings, serviceChargeRate: Number(e.target.value) || 0 })}
+                                  className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-bold outline-none focus:border-md-primary"
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-md-on-surface-variant font-bold">%</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600">
+                            Biaya layanan dinonaktifkan.
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card 3: Online Flat Shipping Settings */}
+                      <div className="bg-white border border-[#f0f2f5] p-6 rounded-3xl space-y-4 shadow-none">
+                        <div className="pb-3 border-b border-[#f0f2f5]">
+                          <h3 className="text-sm font-bold text-md-on-surface flex items-center">
+                            <Store className="w-4 h-4 mr-2 text-md-primary" />
+                            Pengiriman Toko Online (Shipping)
+                          </h3>
+                          <p className="text-xs text-md-on-surface-variant mt-0.5">
+                            Konfigurasi tarif pengiriman flat dan syarat minimum belanja gratis ongkir pada web store.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-md-on-surface">Ongkos Kirim Standar (Rp)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1000"
+                              value={taxSettings.flatShippingFee}
+                              onChange={(e) => setTaxSettings({ ...taxSettings, flatShippingFee: Number(e.target.value) || 0 })}
+                              className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-semibold outline-none focus:border-md-primary"
+                            />
+                            <p className="text-[10px] text-md-on-surface-variant">Contoh: Rp 10.000 per pengiriman</p>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-md-on-surface">Min. Belanja Gratis Ongkir (Rp)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="5000"
+                              value={taxSettings.freeShippingMin}
+                              onChange={(e) => setTaxSettings({ ...taxSettings, freeShippingMin: Number(e.target.value) || 0 })}
+                              className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-semibold outline-none focus:border-md-primary"
+                            />
+                            <p className="text-[10px] text-md-on-surface-variant">Isi 0 jika tidak ada promo gratis ongkir</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Save Button */}
+                      <button
+                        type="submit"
+                        className="inline-flex items-center justify-center flex-row whitespace-nowrap text-xs font-semibold py-3 px-6 rounded-full bg-md-primary text-white hover:bg-md-primary-hover shadow-none transition-all"
+                      >
+                        <Check className="w-4 h-4 mr-2 shrink-0" />
+                        <span>Simpan Pengaturan Pajak & Biaya</span>
+                      </button>
+                    </div>
+
+                    {/* Right Live Simulation Preview */}
+                    <div className="lg:col-span-4 space-y-4">
+                      <div className="bg-[#f0f4f9] border border-[#e0e2ec] p-5 rounded-3xl space-y-4 shadow-none sticky top-6">
+                        <div className="flex items-center space-x-2">
+                          <Sparkles className="w-4 h-4 text-md-primary shrink-0" />
+                          <h4 className="text-xs font-bold text-md-on-surface uppercase tracking-wider">
+                            Simulasi Transaksi Real-Time
+                          </h4>
+                        </div>
+                        <p className="text-[11px] text-md-on-surface-variant leading-relaxed">
+                          Contoh kalkulasi struk otomatis berdasarkan pengaturan pajak dan biaya yang Anda atur:
+                        </p>
+
+                        {/* Sample breakdown */}
+                        <div className="bg-white rounded-2xl p-4 border border-[#e0e2ec] space-y-2 text-xs">
+                          <div className="flex justify-between text-md-on-surface-variant">
+                            <span>Subtotal Contoh Produk</span>
+                            <span className="font-mono font-semibold text-md-on-surface">Rp 100.000</span>
+                          </div>
+
+                          {taxSettings.ppnEnabled && (
+                            <div className="flex justify-between text-md-on-surface-variant">
+                              <span>
+                                PPN ({taxSettings.ppnRate}%)
+                                {taxSettings.ppnType === 'INCLUSIVE' && ' (Incl.)'}
+                              </span>
+                              <span className="font-mono text-md-on-surface font-semibold">
+                                {taxSettings.ppnType === 'EXCLUSIVE'
+                                  ? `+ Rp ${(100000 * (taxSettings.ppnRate / 100)).toLocaleString('id-ID')}`
+                                  : `Termasuk Rp ${Math.round(100000 - 100000 / (1 + taxSettings.ppnRate / 100)).toLocaleString('id-ID')}`}
+                              </span>
+                            </div>
+                          )}
+
+                          {taxSettings.serviceChargeEnabled && (
+                            <div className="flex justify-between text-md-on-surface-variant">
+                              <span>Biaya Layanan ({taxSettings.serviceChargeRate}%)</span>
+                              <span className="font-mono text-md-on-surface font-semibold">
+                                + Rp {(100000 * (taxSettings.serviceChargeRate / 100)).toLocaleString('id-ID')}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="flex justify-between text-md-on-surface-variant">
+                            <span>Ongkos Kirim Web (Pesanan Rp 100rb)</span>
+                            <span className="font-mono text-md-on-surface font-semibold">
+                              {100000 >= taxSettings.freeShippingMin && taxSettings.freeShippingMin > 0 ? (
+                                <span className="text-emerald-600 font-bold">GRATIS</span>
+                              ) : (
+                                `+ Rp ${taxSettings.flatShippingFee.toLocaleString('id-ID')}`
+                              )}
+                            </span>
+                          </div>
+
+                          <div className="pt-2 border-t border-[#f0f2f5] flex justify-between font-bold text-sm text-md-primary">
+                            <span>Estimasi Total Pembayaran</span>
+                            <span className="font-mono">
+                              Rp{' '}
+                              {(
+                                100000 +
+                                (taxSettings.ppnEnabled && taxSettings.ppnType === 'EXCLUSIVE'
+                                  ? 100000 * (taxSettings.ppnRate / 100)
+                                  : 0) +
+                                (taxSettings.serviceChargeEnabled
+                                  ? 100000 * (taxSettings.serviceChargeRate / 100)
+                                  : 0) +
+                                (100000 >= taxSettings.freeShippingMin && taxSettings.freeShippingMin > 0
+                                  ? 0
+                                  : taxSettings.flatShippingFee)
+                              ).toLocaleString('id-ID')}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-[10px] text-md-on-surface-variant/80 bg-white/70 p-3 rounded-xl border border-dashed border-[#e0e2ec]">
+                          💡 Pengaturan ini langsung tersinkronisasi dengan mesin kasir POS dan keranjang belanja toko online.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1832,6 +2514,167 @@ export default function AdminDashboardPage() {
               </button>
               <button onClick={handleDeleteUser} className="flex-1 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white font-semibold text-xs transition-colors">
                 Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Promo Code Create / Edit Modal */}
+      {promoModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-[#f0f2f5] p-6 rounded-3xl max-w-md w-full space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-3 border-b border-[#f0f2f5]">
+              <div className="flex items-center space-x-2">
+                <Tag className="w-5 h-5 text-md-primary" />
+                <h3 className="text-base font-bold text-md-on-surface">
+                  {editingPromo ? 'Edit Kode Promo' : 'Buat Kode Promo Baru'}
+                </h3>
+              </div>
+              <button onClick={() => setPromoModalOpen(false)} className="p-1.5 rounded-full hover:bg-[#f0f4f9]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePromo} className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-md-on-surface">Kode Promo (Kupon)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: DISKON25, MERDEKA"
+                  value={promoForm.code}
+                  onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase().replace(/\s+/g, '') })}
+                  className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-mono font-bold tracking-wider outline-none focus:border-md-primary uppercase"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-md-on-surface">Deskripsi / Judul Promo</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Diskon 25% Spesial Pelanggan Setia"
+                  value={promoForm.description}
+                  onChange={(e) => setPromoForm({ ...promoForm, description: e.target.value })}
+                  className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-semibold outline-none focus:border-md-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-md-on-surface">Tipe Diskon</label>
+                  <select
+                    value={promoForm.discountType}
+                    onChange={(e) => setPromoForm({ ...promoForm, discountType: e.target.value as any })}
+                    className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-3.5 py-2 text-xs font-semibold outline-none focus:border-md-primary"
+                  >
+                    <option value="PERCENTAGE">Persentase (%)</option>
+                    <option value="FIXED">Nominal Tetap (Rp)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-md-on-surface">
+                    Nilai Diskon {promoForm.discountType === 'PERCENTAGE' ? '(%)' : '(Rp)'}
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    max={promoForm.discountType === 'PERCENTAGE' ? 100 : undefined}
+                    value={promoForm.discountValue}
+                    onChange={(e) => setPromoForm({ ...promoForm, discountValue: Number(e.target.value) || 0 })}
+                    className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-bold outline-none focus:border-md-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-md-on-surface">Min. Belanja (Rp)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    placeholder="0 = Tanpa minimal"
+                    value={promoForm.minPurchase}
+                    onChange={(e) => setPromoForm({ ...promoForm, minPurchase: Number(e.target.value) || 0 })}
+                    className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-semibold outline-none focus:border-md-primary"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-md-on-surface">Maks. Potongan (Rp)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    disabled={promoForm.discountType === 'FIXED'}
+                    placeholder="Kosongkan jika unlimited"
+                    value={promoForm.maxDiscount}
+                    onChange={(e) => setPromoForm({ ...promoForm, maxDiscount: e.target.value ? Number(e.target.value) : '' })}
+                    className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs font-semibold outline-none focus:border-md-primary disabled:opacity-50"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-md-on-surface">Masa Berlaku Kupon (s/d Tanggal)</label>
+                <input
+                  type="date"
+                  value={promoForm.validUntil}
+                  onChange={(e) => setPromoForm({ ...promoForm, validUntil: e.target.value })}
+                  className="w-full bg-[#f7f9fc] border border-[#e0e2ec] rounded-2xl px-4 py-2 text-xs outline-none focus:border-md-primary font-mono"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center space-x-3">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={promoForm.isActive}
+                    onChange={(e) => setPromoForm({ ...promoForm, isActive: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-md-primary"></div>
+                </label>
+                <span className="text-xs font-semibold text-md-on-surface">
+                  {promoForm.isActive ? 'Promo Langsung Aktif' : 'Simpan sebagai Non-Aktif (Draf)'}
+                </span>
+              </div>
+
+              <div className="pt-3">
+                <button
+                  type="submit"
+                  className="w-full inline-flex items-center justify-center flex-row whitespace-nowrap py-2.5 rounded-full bg-md-primary hover:bg-md-primary-hover text-white text-xs font-semibold shadow-none transition-all"
+                >
+                  <Check className="w-4 h-4 mr-1.5 shrink-0" />
+                  <span>{editingPromo ? 'Simpan Perubahan Promo' : 'Buat Kode Promo'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Promo Modal */}
+      {deletePromoModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-[#f0f2f5] p-6 rounded-3xl max-w-sm w-full space-y-4 shadow-xl">
+            <div className="flex items-center space-x-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              <h3 className="text-sm font-bold text-md-on-surface">Hapus Kode Promo</h3>
+            </div>
+            <p className="text-xs text-md-on-surface-variant">
+              Apakah Anda yakin ingin menghapus promo <span className="font-bold text-md-on-surface font-mono">[{deletePromoModal.code}]</span> ({deletePromoModal.description})? Kode promo ini tidak akan bisa digunakan lagi oleh pelanggan.
+            </p>
+            <div className="flex space-x-2 pt-2">
+              <button onClick={() => setDeletePromoModal(null)} className="flex-1 py-2 rounded-full border border-[#e0e2ec] text-xs font-semibold">
+                Batal
+              </button>
+              <button onClick={handleDeletePromo} className="flex-1 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white font-semibold text-xs transition-colors">
+                Hapus Promo
               </button>
             </div>
           </div>
