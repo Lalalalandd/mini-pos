@@ -9,8 +9,6 @@ import {
   Terminal,
   ShoppingBag,
   ShieldCheck,
-  Search,
-  User,
   LogOut,
 } from 'lucide-react';
 
@@ -18,7 +16,6 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [headerSearch, setHeaderSearch] = useState('');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -40,168 +37,137 @@ export function Header() {
       localStorage.removeItem('user');
     }
     setCurrentUser(null);
-    toast.success('Berhasil keluar dari akun.');
+    toast.success('Sesi berhasil diakhiri.');
     router.push('/login');
-  };
-
-  const handleHeaderSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (headerSearch.trim()) {
-      router.push(`/catalog?q=${encodeURIComponent(headerSearch.trim())}`);
-    } else {
-      router.push('/catalog');
-    }
   };
 
   const isCashier = currentUser?.role === 'CASHIER';
   const isAdmin = currentUser?.role === 'ADMIN';
   const isCustomerOrPublic = !currentUser || currentUser?.role === 'CUSTOMER';
 
+  if (pathname === '/login') {
+    return null;
+  }
+
   const logoHref = isAdmin ? '/admin/dashboard' : isCashier ? '/pos' : '/catalog';
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 sm:px-8 py-3 shadow-sm">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 sm:gap-6">
-        {/* Store Logo */}
-        <Link href={logoHref} className="flex items-center space-x-2.5 shrink-0">
-          <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold shadow-sm">
+    <header className="sticky top-0 z-40 bg-white border-b border-[#f0f2f5] px-4 sm:px-8 py-2.5 shadow-none">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        {/* Brand App Bar */}
+        <Link href={logoHref} className="flex items-center space-x-3 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0b57d0] rounded-xl p-1">
+          <div className="w-10 h-10 rounded-2xl bg-[#0b57d0] text-white flex items-center justify-center font-bold shadow-none transition-transform active:scale-95">
             <Store className="w-5 h-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-base font-bold text-slate-900 tracking-tight leading-none">AuraStore</span>
-            <span className="text-[10px] text-blue-600 font-semibold tracking-wide uppercase mt-0.5">
-              {isAdmin ? 'Admin Console' : isCashier ? 'Terminal POS Kasir' : 'Marketplace Online'}
+            <span className="text-base font-bold text-[#1f1f1f] tracking-tight leading-tight">AuraStore</span>
+            <span className="text-[11px] text-[#0b57d0] font-semibold tracking-wide">
+              {isAdmin ? 'Admin Console' : isCashier ? 'Terminal POS Kasir' : 'Katalog Belanja'}
             </span>
           </div>
         </Link>
 
-        {/* Marketplace Search Bar (Only shown for Customers / Public / Admin) */}
-        {!isCashier && (
-          <form onSubmit={handleHeaderSearchSubmit} className="hidden md:flex flex-1 max-w-xl relative">
-            <div className="relative w-full flex items-center">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
-              <input
-                type="text"
-                value={headerSearch}
-                onChange={(e) => setHeaderSearch(e.target.value)}
-                placeholder="Cari kopi artisan, pastry hangat, paket bundling..."
-                className="w-full bg-slate-50 border border-slate-200 focus:border-blue-600 focus:bg-white rounded-lg pl-10 pr-20 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition-all"
-              />
-              <button
-                type="submit"
-                className="absolute right-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition-colors"
-              >
-                Cari
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* Cashier Specific Title Banner */}
+        {/* Center Mode Indicator for Cashier */}
         {isCashier && (
-          <div className="hidden sm:flex items-center space-x-2 text-xs text-slate-600">
-            <span className="px-2.5 py-1 rounded bg-blue-50 border border-blue-200 text-blue-700 font-semibold">
+          <div className="hidden sm:flex items-center space-x-2 text-xs">
+            <span className="px-3 py-1 rounded-full bg-[#d3e3fd] text-[#041e49] font-semibold">
               Mode Terminal Kasir Aktif
             </span>
           </div>
         )}
 
-        {/* Right Navigation & User Actions */}
-        <div className="flex items-center space-x-2 sm:space-x-3">
-          {/* Admin Navigation */}
+        {/* Navigation Actions */}
+        <div className="flex items-center space-x-2">
           {isAdmin && (
-            <>
+            <div className="hidden sm:flex items-center space-x-1.5 bg-[#f0f4f9] p-1 rounded-full">
               <Link
                 href="/admin/dashboard"
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
                   pathname === '/admin/dashboard'
-                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    ? 'bg-white text-[#0b57d0] shadow-none font-bold'
+                    : 'text-[#444746] hover:text-[#1f1f1f]'
                 }`}
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                <span className="hidden lg:inline">Admin Dashboard</span>
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden lg:inline">Dashboard</span>
               </Link>
               <Link
                 href="/pos"
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
                   pathname === '/pos'
-                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    ? 'bg-white text-[#0b57d0] shadow-none font-bold'
+                    : 'text-[#444746] hover:text-[#1f1f1f]'
                 }`}
               >
-                <Terminal className="w-3.5 h-3.5 text-blue-600" />
+                <Terminal className="w-3.5 h-3.5 shrink-0" />
                 <span className="hidden lg:inline">Terminal POS</span>
               </Link>
               <Link
                 href="/catalog"
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
                   pathname.startsWith('/catalog')
-                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    ? 'bg-white text-[#0b57d0] shadow-none font-bold'
+                    : 'text-[#444746] hover:text-[#1f1f1f]'
                 }`}
               >
-                <ShoppingBag className="w-3.5 h-3.5 text-blue-600" />
-                <span className="hidden sm:inline">Lihat Toko</span>
+                <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">Katalog</span>
               </Link>
-            </>
+            </div>
           )}
 
-          {/* Cashier Navigation: ONLY Terminal POS */}
           {isCashier && (
             <Link
               href="/pos"
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 transition-colors"
+              className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#d3e3fd] text-[#041e49] transition-colors"
             >
-              <Terminal className="w-3.5 h-3.5 text-blue-600" />
+              <Terminal className="w-3.5 h-3.5 shrink-0" />
               <span>Terminal POS</span>
             </Link>
           )}
 
-          {/* Customer & Public Navigation: ONLY Toko Online */}
           {isCustomerOrPublic && (
             <Link
               href="/catalog"
-              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
                 pathname.startsWith('/catalog')
-                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  ? 'bg-[#d3e3fd] text-[#041e49]'
+                  : 'bg-white text-[#444746] border border-[#e0e2ec] hover:bg-[#f0f4f9]'
               }`}
             >
-              <ShoppingBag className="w-3.5 h-3.5 text-blue-600" />
+              <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
               <span>Katalog Belanja</span>
             </Link>
           )}
 
-          {/* User Profile & Logout */}
+          {/* Profile Chip & Auth */}
           {currentUser ? (
-            <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-300 text-slate-800 flex items-center justify-center text-xs font-bold font-mono">
+            <div className="flex items-center space-x-2 pl-2 border-l border-[#f0f2f5]">
+              <div className="flex items-center space-x-2 bg-[#f0f4f9] px-2.5 py-1 rounded-full border border-[#f0f2f5]">
+                <div className="w-6 h-6 rounded-full bg-[#0b57d0] text-white flex items-center justify-center text-[11px] font-bold">
                   {currentUser.role?.[0] || 'U'}
                 </div>
-                <div className="hidden xl:block text-left text-xs leading-tight">
-                  <div className="font-semibold text-slate-800 truncate max-w-[110px]">
+                <div className="hidden md:block text-left text-xs leading-tight">
+                  <div className="font-semibold text-[#1f1f1f] truncate max-w-[120px]">
                     {currentUser.name || 'Pengguna'}
                   </div>
-                  <div className="text-[10px] text-slate-500 font-mono">{currentUser.role}</div>
                 </div>
               </div>
 
               <button
                 onClick={handleLogout}
                 title="Keluar dari akun"
-                className="p-2 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 border border-slate-200 transition-colors flex items-center space-x-1"
+                className="p-2 rounded-full text-[#444746] hover:text-red-700 hover:bg-red-50 transition-colors"
+                aria-label="Keluar dari akun"
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline text-xs font-medium">Keluar</span>
+                <LogOut className="w-4 h-4 shrink-0" />
               </button>
             </div>
           ) : (
-            <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
+            <div className="flex items-center space-x-2 pl-2 border-l border-[#f0f2f5]">
               <Link
                 href="/login"
-                className="px-4 py-1.5 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-sm"
+                className="px-4 py-1.5 rounded-full text-xs font-semibold bg-[#0b57d0] hover:bg-[#0842a0] text-white transition-all shadow-none"
               >
                 Masuk
               </Link>

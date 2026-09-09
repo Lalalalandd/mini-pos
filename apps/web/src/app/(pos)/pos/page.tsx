@@ -12,7 +12,6 @@ import {
   CreditCard,
   Banknote,
   QrCode,
-  CheckCircle,
   Receipt,
   RotateCcw,
   Coffee,
@@ -115,7 +114,6 @@ export default function PosTerminalPage() {
 
   const scannerInputRef = useRef<HTMLInputElement>(null);
 
-  // Auth & Role Guard for POS
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedUser = localStorage.getItem('user');
@@ -137,9 +135,8 @@ export default function PosTerminalPage() {
         return;
       }
     }
-  }, []);
+  }, [router]);
 
-  // Keyboard shortcut listener (F2: focus scanner, F4: checkout, Esc: clear/close)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F2') {
@@ -157,7 +154,6 @@ export default function PosTerminalPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [cart, paymentModalOpen, completedOrder]);
 
-  // Load backend products
   useEffect(() => {
     restFetch<any[]>('/products')
       .then((data) => {
@@ -180,7 +176,7 @@ export default function PosTerminalPage() {
   const categories = [
     { id: 'ALL', name: 'Semua Menu', icon: Layers },
     { id: 'Minuman', name: 'Minuman', icon: Coffee },
-    { id: 'Bakery', name: 'Bakery & Roti', icon: Package },
+    { id: 'Bakery', name: 'Bakery', icon: Package },
     { id: 'Makanan', name: 'Makanan Utama', icon: Utensils },
     { id: 'Camilan', name: 'Camilan', icon: Package },
   ];
@@ -228,7 +224,7 @@ export default function PosTerminalPage() {
       addToCart(matched);
       setBarcodeInput('');
     } else {
-      toast.warning(`Produk dengan barcode / SKU "${barcodeInput}" tidak ditemukan.`);
+      toast.warning(`Produk dengan barcode atau SKU "${barcodeInput}" tidak ditemukan.`);
     }
   };
 
@@ -285,7 +281,7 @@ export default function PosTerminalPage() {
       setCompletedOrder(result);
       setPaymentModalOpen(false);
       setCart([]);
-      toast.success(`Transaksi berhasil! No: ${result.orderNumber || 'POS'}`);
+      toast.success(`Transaksi berhasil. No: ${result.orderNumber || 'POS'}`);
     } catch (err: any) {
       toast.error(`Checkout gagal: ${err.message}`);
     } finally {
@@ -307,56 +303,54 @@ export default function PosTerminalPage() {
   if (!isAuthorized) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] space-y-3">
-        <div className="w-8 h-8 rounded-full border-2 border-slate-200 border-t-blue-600 animate-spin" />
-        <span className="text-xs font-semibold text-slate-500">Memverifikasi sesi kasir...</span>
+        <div className="w-8 h-8 rounded-full border-2 border-slate-200 border-t-md-primary animate-spin" />
+        <span className="text-xs font-semibold text-md-on-surface-variant">Memverifikasi sesi kasir...</span>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 max-w-[1600px] mx-auto w-full grid grid-cols-1 xl:grid-cols-12 gap-5 p-4 sm:p-5 h-[calc(100vh-57px)] text-slate-900">
-      {/* ============================================================ */}
-      {/* LEFT AREA: Catalog & Barcode Scanner (8 Cols) */}
-      {/* ============================================================ */}
+    <div className="flex-1 max-w-[1600px] mx-auto w-full grid grid-cols-1 xl:grid-cols-12 gap-5 p-4 sm:p-5 h-[calc(100vh-64px)] text-md-on-surface bg-[#f7f9fc]">
+      {/* Left Area: Catalog & Barcode Scanner */}
       <div className="xl:col-span-8 flex flex-col space-y-3.5 h-full overflow-hidden">
-        {/* Top Scanner & Search Box */}
-        <div className="bg-white border border-slate-200 p-3 rounded-lg flex flex-col md:flex-row items-center gap-3 shadow-sm">
+        {/* Top Scanner & Search Box (Shadow-none, Light Gray Border) */}
+        <div className="bg-white border border-[#f0f2f5] p-3.5 rounded-3xl flex flex-col md:flex-row items-center gap-3 shadow-none">
           {/* Barcode Form */}
           <form onSubmit={handleBarcodeSubmit} className="flex-1 w-full flex items-center space-x-2">
             <div className="relative flex-1">
-              <Barcode className="w-4 h-4 text-blue-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Barcode className="w-4 h-4 text-md-primary absolute left-4 top-1/2 -translate-y-1/2" />
               <input
                 ref={scannerInputRef}
                 type="text"
                 value={barcodeInput}
                 onChange={(e) => setBarcodeInput(e.target.value)}
                 placeholder="Scan Barcode / Ketik SKU (F2)... contoh: 899100100001"
-                className="w-full bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white rounded-md pl-10 pr-3.5 py-2 text-xs font-mono text-slate-900 placeholder:text-slate-500 outline-none"
+                className="w-full bg-[#f7f9fc] border border-[#e0e2ec] focus:border-md-primary focus:bg-white rounded-full pl-11 pr-4 py-2.5 text-xs font-mono text-md-on-surface placeholder:text-md-on-surface-variant/60 outline-none transition-colors"
               />
             </div>
             <button
               type="submit"
-              className="px-3.5 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center space-x-1.5 transition-colors"
+              className="inline-flex items-center justify-center flex-row whitespace-nowrap px-4 py-2.5 rounded-full bg-md-primary hover:bg-md-primary-hover text-white text-xs font-semibold shadow-none transition-all"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-4 h-4 mr-1.5 shrink-0" />
               <span>Input</span>
             </button>
           </form>
 
           {/* Search Input */}
-          <div className="relative w-full md:w-56">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <div className="relative w-full md:w-60">
+            <Search className="w-4 h-4 text-md-on-surface-variant/60 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari nama menu..."
-              className="w-full bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white rounded-md pl-9 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-500 outline-none"
+              className="w-full bg-[#f7f9fc] border border-[#e0e2ec] focus:border-md-primary focus:bg-white rounded-full pl-10 pr-4 py-2.5 text-xs text-md-on-surface placeholder:text-md-on-surface-variant/60 outline-none transition-colors"
             />
           </div>
         </div>
 
-        {/* Category Horizontal Filter Pills */}
+        {/* Category Horizontal Filter Chips */}
         <div className="flex items-center space-x-2 overflow-x-auto pb-1 no-scrollbar">
           {categories.map((cat) => {
             const Icon = cat.icon;
@@ -365,50 +359,46 @@ export default function PosTerminalPage() {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`flex-shrink-0 flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
-                  isSelected
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                }`}
+                className={`m3-chip shrink-0 ${isSelected ? 'm3-chip-selected' : ''}`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className="w-3.5 h-3.5 mr-1.5 shrink-0" />
                 <span>{cat.name}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Product Cards Grid */}
-        <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {/* Product Cards Grid (Shadow-none, Light Gray Border) */}
+        <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5">
           {filteredProducts.map((p) => (
             <button
               key={p.id}
               onClick={() => addToCart(p)}
-              className="bg-white border border-slate-200 hover:border-blue-400 p-3.5 rounded-lg text-left flex flex-col justify-between group h-32 relative shadow-sm transition-all focus:outline-none"
+              className="bg-white border border-[#f0f2f5] hover:border-[#c4c7c5] p-4 rounded-2xl text-left flex flex-col justify-between group h-36 relative shadow-none transition-all focus:outline-none"
             >
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-mono text-slate-500">{p.sku}</span>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-mono text-md-on-surface-variant">{p.sku}</span>
                   <span
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold ${
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
                       p.stock > 10
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : 'bg-amber-50 text-amber-800 border border-amber-200'
                     }`}
                   >
                     Stok: {p.stock}
                   </span>
                 </div>
-                <h4 className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-snug">
+                <h4 className="text-xs font-bold text-md-on-surface group-hover:text-md-primary transition-colors line-clamp-2 leading-snug">
                   {p.name}
                 </h4>
               </div>
 
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-900 font-mono">
+              <div className="pt-2 border-t border-[#f0f2f5] flex items-center justify-between">
+                <span className="text-xs font-bold text-md-on-surface font-mono">
                   Rp {p.price.toLocaleString('id-ID')}
                 </span>
-                <span className="w-5 h-5 rounded bg-slate-100 group-hover:bg-blue-600 group-hover:text-white text-slate-700 flex items-center justify-center text-xs font-bold transition-colors">
+                <span className="w-6 h-6 rounded-full bg-[#d3e3fd] text-[#041e49] group-hover:bg-md-primary group-hover:text-white inline-flex items-center justify-center text-xs font-bold transition-colors">
                   +
                 </span>
               </div>
@@ -417,34 +407,36 @@ export default function PosTerminalPage() {
         </div>
       </div>
 
-      {/* ============================================================ */}
-      {/* RIGHT AREA: Cart Ticket & Checkout (4 Cols) */}
-      {/* ============================================================ */}
-      <div className="xl:col-span-4 bg-white border border-slate-200 rounded-lg flex flex-col h-full overflow-hidden shadow-sm">
+      {/* Right Area: Cart Ticket & Checkout (Shadow-none, Light Gray Border) */}
+      <div className="xl:col-span-4 bg-white border border-[#f0f2f5] rounded-3xl flex flex-col h-full overflow-hidden shadow-none">
         {/* Ticket Header */}
-        <div className="p-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="p-4 border-b border-[#f0f2f5] flex items-center justify-between bg-[#f7f9fc]">
           <div className="flex items-center space-x-2">
-            <Receipt className="w-4 h-4 text-blue-600" />
-            <h3 className="text-xs font-bold text-slate-900">Tiket Transaksi Kasir</h3>
+            <div className="w-7 h-7 rounded-full bg-md-primary-container flex items-center justify-center text-md-primary">
+              <Receipt className="w-3.5 h-3.5" />
+            </div>
+            <h3 className="text-xs font-bold text-md-on-surface">Tiket Transaksi Kasir</h3>
           </div>
           {cart.length > 0 && (
             <button
               onClick={() => setCart([])}
-              className="text-[11px] text-red-600 hover:text-red-700 font-medium flex items-center space-x-1"
+              className="inline-flex items-center justify-center flex-row whitespace-nowrap text-xs text-red-600 hover:text-red-700 font-semibold px-2.5 py-1 rounded-full hover:bg-red-50 transition-colors"
             >
-              <RotateCcw className="w-3 h-3" />
+              <RotateCcw className="w-3 h-3 mr-1 shrink-0" />
               <span>Reset</span>
             </button>
           )}
         </div>
 
         {/* Cart Item Rows */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
           {cart.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 space-y-2">
-              <Barcode className="w-10 h-10 stroke-1 text-slate-300" />
-              <div className="text-xs font-semibold text-slate-600">Tiket Belum Ada Item</div>
-              <p className="text-[11px] text-slate-400 max-w-[200px]">
+            <div className="h-full flex flex-col items-center justify-center text-center p-6 text-md-on-surface-variant space-y-2.5">
+              <div className="w-12 h-12 rounded-full bg-[#f0f4f9] flex items-center justify-center text-md-outline">
+                <Barcode className="w-6 h-6" />
+              </div>
+              <div className="text-xs font-semibold text-md-on-surface">Tiket Belum Ada Item</div>
+              <p className="text-[11px] text-md-on-surface-variant max-w-[200px]">
                 Scan barcode atau klik menu produk untuk menambahkan
               </p>
             </div>
@@ -452,35 +444,38 @@ export default function PosTerminalPage() {
             cart.map((item) => (
               <div
                 key={item.product.id}
-                className="p-2.5 rounded-md bg-slate-50 border border-slate-200 flex items-center justify-between gap-2"
+                className="p-3 rounded-2xl bg-[#f7f9fc] border border-[#f0f2f5] flex items-center justify-between gap-2"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-slate-900 truncate">{item.product.name}</div>
-                  <div className="text-[11px] font-mono text-slate-600">
+                  <div className="text-xs font-bold text-md-on-surface truncate">{item.product.name}</div>
+                  <div className="text-[11px] font-mono text-md-on-surface-variant">
                     Rp {item.product.price.toLocaleString('id-ID')}
                   </div>
                 </div>
 
                 {/* Steppers */}
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center space-x-1.5 bg-white rounded-full p-1 border border-[#e0e2ec]">
                   <button
                     onClick={() => updateQty(item.product.id, -1)}
-                    className="w-5 h-5 rounded bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 flex items-center justify-center text-xs"
+                    className="w-5 h-5 rounded-full hover:bg-[#f0f4f9] text-md-on-surface inline-flex items-center justify-center text-xs transition-colors"
+                    aria-label="Kurangi"
                   >
                     <Minus className="w-3 h-3" />
                   </button>
-                  <span className="text-xs font-bold text-slate-900 w-5 text-center font-mono">
+                  <span className="text-xs font-bold text-md-on-surface w-5 text-center font-mono">
                     {item.quantity}
                   </span>
                   <button
                     onClick={() => updateQty(item.product.id, 1)}
-                    className="w-5 h-5 rounded bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 flex items-center justify-center text-xs"
+                    className="w-5 h-5 rounded-full hover:bg-[#f0f4f9] text-md-on-surface inline-flex items-center justify-center text-xs transition-colors"
+                    aria-label="Tambah"
                   >
                     <Plus className="w-3 h-3" />
                   </button>
                   <button
                     onClick={() => removeItem(item.product.id)}
-                    className="text-slate-400 hover:text-red-600 p-1 ml-1"
+                    className="text-md-on-surface-variant hover:text-red-600 p-1 ml-0.5 transition-colors inline-flex items-center justify-center"
+                    aria-label="Hapus"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -491,23 +486,23 @@ export default function PosTerminalPage() {
         </div>
 
         {/* Ticket Summary & Checkout Action */}
-        <div className="p-3.5 border-t border-slate-200 bg-slate-50 space-y-3">
-          <div className="space-y-1 text-xs text-slate-600">
+        <div className="p-4 border-t border-[#f0f2f5] bg-[#f7f9fc] space-y-3.5">
+          <div className="space-y-1.5 text-xs text-md-on-surface-variant">
             <div className="flex justify-between">
               <span>Subtotal ({cart.reduce((s, i) => s + i.quantity, 0)} item)</span>
-              <span className="font-mono text-slate-900 font-semibold">
+              <span className="font-mono text-md-on-surface font-semibold">
                 Rp {subtotal.toLocaleString('id-ID')}
               </span>
             </div>
             {totalDiscount > 0 && (
-              <div className="flex justify-between text-emerald-700">
+              <div className="flex justify-between text-md-primary font-medium">
                 <span>Diskon</span>
                 <span className="font-mono">- Rp {totalDiscount.toLocaleString('id-ID')}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm font-bold text-slate-900 pt-2 border-t border-slate-200">
+            <div className="flex justify-between text-sm font-bold text-md-on-surface pt-2 border-t border-[#e0e2ec]">
               <span>Total Bayar</span>
-              <span className="font-mono text-blue-700 text-base font-black">
+              <span className="font-mono text-md-primary text-base font-extrabold">
                 Rp {grandTotal.toLocaleString('id-ID')}
               </span>
             </div>
@@ -516,114 +511,113 @@ export default function PosTerminalPage() {
           <button
             disabled={cart.length === 0}
             onClick={openCheckout}
-            className="w-full py-2.5 rounded-md bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-bold text-xs transition-colors shadow-sm flex items-center justify-center space-x-1.5"
+            className="w-full inline-flex items-center justify-center flex-row whitespace-nowrap py-3 rounded-full bg-md-primary hover:bg-md-primary-hover disabled:opacity-40 text-white font-semibold text-xs transition-all shadow-none"
           >
-            <Banknote className="w-4 h-4" />
+            <Banknote className="w-4 h-4 mr-2 shrink-0" />
             <span>Bayar Transaksi (F4)</span>
           </button>
         </div>
       </div>
 
-      {/* ============================================================ */}
-      {/* TENDER PAYMENT MODAL */}
-      {/* ============================================================ */}
+      {/* Tender Payment Modal */}
       {paymentModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 p-6 rounded-lg max-w-md w-full space-y-4 shadow-xl text-slate-900">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-[#f0f2f5] p-6 rounded-3xl max-w-md w-full space-y-5 shadow-xl text-md-on-surface">
+            <div className="flex justify-between items-center pb-3 border-b border-[#f0f2f5]">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Pilih Metode Pembayaran</h3>
-                <p className="text-[11px] text-slate-500">Pilih metode dan masukkan jumlah uang diterima</p>
+                <h3 className="text-base font-bold text-md-on-surface">Pilih Metode Pembayaran</h3>
+                <p className="text-xs text-md-on-surface-variant">Pilih metode dan masukkan nominal uang diterima</p>
               </div>
               <button
                 onClick={() => setPaymentModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
+                className="text-md-on-surface-variant hover:text-md-on-surface p-1.5 rounded-full hover:bg-[#f0f4f9] transition-colors"
+                aria-label="Tutup"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Total Display */}
-            <div className="text-center p-3.5 rounded-md bg-slate-50 border border-slate-200">
-              <div className="text-xs text-slate-500 font-medium">Total yang harus dibayar</div>
-              <div className="text-2xl font-black text-blue-700 font-mono mt-0.5">
+            <div className="text-center p-4 rounded-2xl bg-[#f7f9fc] border border-[#f0f2f5]">
+              <div className="text-xs text-md-on-surface-variant font-medium">Total yang harus dibayar</div>
+              <div className="text-3xl font-extrabold text-md-primary font-mono mt-1">
                 Rp {grandTotal.toLocaleString('id-ID')}
               </div>
             </div>
 
             {/* Payment Method Tabs */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={() => setPaymentMethod('CASH')}
-                className={`p-2.5 rounded-md border flex flex-col items-center space-y-1 text-xs font-semibold transition-colors ${
+                className={`p-3 rounded-2xl border flex flex-col items-center space-y-1.5 text-xs font-semibold transition-all ${
                   paymentMethod === 'CASH'
-                    ? 'bg-blue-50 border-blue-600 text-blue-700'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    ? 'bg-md-primary-container border-md-primary text-md-on-primary-container'
+                    : 'bg-[#f7f9fc] border-[#f0f2f5] text-md-on-surface-variant hover:bg-[#f0f4f9]'
                 }`}
               >
-                <Banknote className="w-4 h-4" />
+                <Banknote className="w-5 h-5 shrink-0" />
                 <span>Tunai (Cash)</span>
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentMethod('QRIS')}
-                className={`p-2.5 rounded-md border flex flex-col items-center space-y-1 text-xs font-semibold transition-colors ${
+                className={`p-3 rounded-2xl border flex flex-col items-center space-y-1.5 text-xs font-semibold transition-all ${
                   paymentMethod === 'QRIS'
-                    ? 'bg-blue-50 border-blue-600 text-blue-700'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    ? 'bg-md-primary-container border-md-primary text-md-on-primary-container'
+                    : 'bg-[#f7f9fc] border-[#f0f2f5] text-md-on-surface-variant hover:bg-[#f0f4f9]'
                 }`}
               >
-                <QrCode className="w-4 h-4" />
+                <QrCode className="w-5 h-5 shrink-0" />
                 <span>QRIS</span>
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentMethod('DEBIT_CARD')}
-                className={`p-2.5 rounded-md border flex flex-col items-center space-y-1 text-xs font-semibold transition-colors ${
+                className={`p-3 rounded-2xl border flex flex-col items-center space-y-1.5 text-xs font-semibold transition-all ${
                   paymentMethod === 'DEBIT_CARD'
-                    ? 'bg-blue-50 border-blue-600 text-blue-700'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    ? 'bg-md-primary-container border-md-primary text-md-on-primary-container'
+                    : 'bg-[#f7f9fc] border-[#f0f2f5] text-md-on-surface-variant hover:bg-[#f0f4f9]'
                 }`}
               >
-                <CreditCard className="w-4 h-4" />
+                <CreditCard className="w-5 h-5 shrink-0" />
                 <span>Debit / EDC</span>
               </button>
             </div>
 
-            {/* CASH SPECIFIC */}
+            {/* Cash Specific Details */}
             {paymentMethod === 'CASH' && (
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-slate-700">Nominal Cepat:</span>
+                  <span className="font-semibold text-md-on-surface">Nominal Cepat:</span>
                 </div>
 
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => setAmountTendered(grandTotal)}
-                    className="p-1.5 rounded bg-slate-100 border border-slate-200 hover:bg-slate-200 text-[11px] font-bold text-slate-800 font-mono"
+                    className="p-2 rounded-xl bg-[#f0f4f9] border border-[#e0e2ec] hover:bg-[#e9eef6] text-xs font-bold text-md-on-surface font-mono transition-colors"
                   >
                     Uang Pas
                   </button>
                   <button
                     type="button"
                     onClick={() => addCashPreset(20000)}
-                    className="p-1.5 rounded bg-slate-100 border border-slate-200 hover:bg-slate-200 text-[11px] font-bold text-slate-800 font-mono"
+                    className="p-2 rounded-xl bg-[#f0f4f9] border border-[#e0e2ec] hover:bg-[#e9eef6] text-xs font-bold text-md-on-surface font-mono transition-colors"
                   >
                     +20.000
                   </button>
                   <button
                     type="button"
                     onClick={() => addCashPreset(50000)}
-                    className="p-1.5 rounded bg-slate-100 border border-slate-200 hover:bg-slate-200 text-[11px] font-bold text-slate-800 font-mono"
+                    className="p-2 rounded-xl bg-[#f0f4f9] border border-[#e0e2ec] hover:bg-[#e9eef6] text-xs font-bold text-md-on-surface font-mono transition-colors"
                   >
                     +50.000
                   </button>
                   <button
                     type="button"
                     onClick={() => addCashPreset(100000)}
-                    className="p-1.5 rounded bg-slate-100 border border-slate-200 hover:bg-slate-200 text-[11px] font-bold text-slate-800 font-mono"
+                    className="p-2 rounded-xl bg-[#f0f4f9] border border-[#e0e2ec] hover:bg-[#e9eef6] text-xs font-bold text-md-on-surface font-mono transition-colors"
                   >
                     +100.000
                   </button>
@@ -633,39 +627,39 @@ export default function PosTerminalPage() {
                   type="number"
                   value={amountTendered}
                   onChange={(e) => setAmountTendered(Number(e.target.value))}
-                  className="w-full bg-white border border-slate-300 focus:border-blue-600 rounded-md px-3 py-2 text-sm font-bold text-slate-900 font-mono outline-none"
+                  className="w-full bg-[#f7f9fc] border border-[#e0e2ec] focus:border-md-primary rounded-xl px-4 py-2.5 text-base font-bold text-md-on-surface font-mono outline-none"
                 />
 
-                <div className="p-2.5 rounded bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
-                  <span className="font-semibold text-slate-600">Kembalian:</span>
-                  <span className="text-sm font-black text-emerald-700 font-mono">
+                <div className="p-3 rounded-xl bg-[#f7f9fc] border border-[#f0f2f5] flex items-center justify-between text-xs">
+                  <span className="font-semibold text-md-on-surface-variant">Kembalian:</span>
+                  <span className="text-base font-extrabold text-emerald-700 font-mono">
                     Rp {changeDue.toLocaleString('id-ID')}
                   </span>
                 </div>
               </div>
             )}
 
-            {/* QRIS SPECIFIC */}
+            {/* QRIS Specific Details */}
             {paymentMethod === 'QRIS' && (
-              <div className="p-4 rounded-md bg-slate-50 border border-slate-200 flex flex-col items-center space-y-2 text-center">
-                <div className="font-bold text-xs text-slate-800">QRIS STANDAR PEMBAYARAN NASIONAL</div>
-                <div className="w-32 h-32 border border-slate-300 p-2 rounded bg-white flex items-center justify-center">
-                  <QrCode className="w-24 h-24 text-slate-900" />
+              <div className="p-4 rounded-2xl bg-[#f7f9fc] border border-[#f0f2f5] flex flex-col items-center space-y-2 text-center">
+                <div className="font-bold text-xs text-md-on-surface">QRIS STANDAR PEMBAYARAN NASIONAL</div>
+                <div className="w-36 h-36 border border-[#e0e2ec] p-2.5 rounded-2xl bg-white flex items-center justify-center">
+                  <QrCode className="w-28 h-28 text-slate-900" />
                 </div>
-                <div className="text-[11px] text-slate-500 font-mono">AuraPOS Merchant - ID: 936001289</div>
+                <div className="text-xs text-md-on-surface-variant font-mono">AuraPOS Merchant (ID: 936001289)</div>
               </div>
             )}
 
             <button
               disabled={loading || (paymentMethod === 'CASH' && amountTendered < grandTotal)}
               onClick={processPayment}
-              className="w-full py-2.5 rounded-md bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-bold text-xs shadow-sm flex items-center justify-center space-x-1.5 transition-colors"
+              className="w-full inline-flex items-center justify-center flex-row whitespace-nowrap py-3 rounded-full bg-md-primary hover:bg-md-primary-hover text-white font-semibold text-xs disabled:opacity-40 shadow-none"
             >
               {loading ? (
-                <span>Memproses...</span>
+                <span>Memproses Pembayaran...</span>
               ) : (
                 <>
-                  <Check className="w-4 h-4" />
+                  <Check className="w-4 h-4 mr-2 shrink-0" />
                   <span>Selesaikan & Terbitkan Struk</span>
                 </>
               )}
@@ -674,19 +668,17 @@ export default function PosTerminalPage() {
         </div>
       )}
 
-      {/* ============================================================ */}
-      {/* THERMAL RECEIPT MODAL */}
-      {/* ============================================================ */}
+      {/* Thermal Receipt Modal */}
       {completedOrder && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-300 p-6 rounded-md max-w-xs w-full space-y-3 shadow-xl text-slate-900 text-xs font-mono">
-            <div className="text-center space-y-0.5 border-b border-dashed border-slate-300 pb-2">
-              <div className="font-bold text-sm tracking-wider uppercase">AuraPOS Store</div>
-              <div className="text-[10px] text-slate-500">Jl. Malioboro No. 42, Yogyakarta</div>
-              <div className="text-[10px] text-slate-500">Telp: (0274) 555-1234</div>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-300 p-6 rounded-3xl max-w-xs w-full space-y-3.5 shadow-2xl text-slate-900 text-xs font-mono">
+            <div className="text-center space-y-0.5 border-b border-dashed border-slate-300 pb-3">
+              <div className="font-bold text-base tracking-wider uppercase">AuraPOS Store</div>
+              <div className="text-[11px] text-slate-500">Jl. Malioboro No. 42, Yogyakarta</div>
+              <div className="text-[11px] text-slate-500">Telp: (0274) 555-1234</div>
             </div>
 
-            <div className="text-[10px] space-y-0.5 border-b border-dashed border-slate-300 pb-2">
+            <div className="text-[11px] space-y-0.5 border-b border-dashed border-slate-300 pb-2.5">
               <div className="flex justify-between">
                 <span>No. Tiket:</span>
                 <span className="font-bold">{completedOrder.orderNumber}</span>
@@ -701,11 +693,11 @@ export default function PosTerminalPage() {
               </div>
             </div>
 
-            <div className="space-y-1 text-[11px] border-b border-dashed border-slate-300 pb-2">
+            <div className="space-y-1.5 text-xs border-b border-dashed border-slate-300 pb-2.5">
               {completedOrder.items?.map((it: any, idx: number) => (
                 <div key={idx} className="space-y-0.5">
-                  <div className="font-semibold text-slate-800">{it.productName}</div>
-                  <div className="flex justify-between text-[10px] text-slate-500">
+                  <div className="font-semibold text-slate-900">{it.productName}</div>
+                  <div className="flex justify-between text-[11px] text-slate-500">
                     <span>
                       {it.quantity} x Rp {it.price?.toLocaleString('id-ID')}
                     </span>
@@ -717,8 +709,8 @@ export default function PosTerminalPage() {
               ))}
             </div>
 
-            <div className="space-y-0.5 text-xs border-b border-dashed border-slate-300 pb-2">
-              <div className="flex justify-between font-bold">
+            <div className="space-y-1 text-xs border-b border-dashed border-slate-300 pb-3">
+              <div className="flex justify-between font-bold text-sm">
                 <span>TOTAL</span>
                 <span>Rp {completedOrder.finalAmount?.toLocaleString('id-ID')}</span>
               </div>
@@ -732,21 +724,21 @@ export default function PosTerminalPage() {
               </div>
             </div>
 
-            <div className="text-center text-[10px] text-slate-500 pt-1">
+            <div className="text-center text-[11px] text-slate-500 pt-1">
               <div>*** TERIMA KASIH ***</div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-2">
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
               <button
                 onClick={() => toast.info('Struk dikirim ke printer thermal POS.')}
-                className="py-1.5 rounded bg-slate-900 text-white font-bold text-xs flex items-center justify-center space-x-1 hover:bg-slate-800"
+                className="py-2.5 rounded-full bg-slate-900 text-white font-bold text-xs inline-flex items-center justify-center flex-row whitespace-nowrap hover:bg-slate-800 transition-colors"
               >
-                <Printer className="w-3.5 h-3.5" />
+                <Printer className="w-3.5 h-3.5 mr-1.5 shrink-0" />
                 <span>Cetak</span>
               </button>
               <button
                 onClick={() => setCompletedOrder(null)}
-                className="py-1.5 rounded bg-slate-100 text-slate-800 font-semibold text-xs hover:bg-slate-200 border border-slate-300"
+                className="py-2.5 rounded-full bg-slate-100 text-slate-800 font-semibold text-xs inline-flex items-center justify-center flex-row whitespace-nowrap hover:bg-slate-200 border border-slate-300 transition-colors"
               >
                 Transaksi Baru
               </button>
