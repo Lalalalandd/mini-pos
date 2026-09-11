@@ -27,11 +27,6 @@ export class RegisterDto {
   @IsString()
   @MinLength(6)
   password: string;
-
-  @ApiProperty({ enum: Role, default: Role.CUSTOMER, description: 'Assigned role' })
-  @IsEnum(Role)
-  @IsOptional()
-  role?: Role = Role.CUSTOMER;
 }
 
 export class RefreshTokenDto {

@@ -12,6 +12,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { clearAuthSession, getStoredAuth } from '@/lib/auth';
 
 export function Header() {
   const pathname = usePathname();
@@ -21,11 +22,9 @@ export function Header() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('user');
-      if (saved) {
-        try {
-          setCurrentUser(JSON.parse(saved));
-        } catch {}
+      const { user, token } = getStoredAuth();
+      if (user && token) {
+        setCurrentUser(user);
       } else {
         setCurrentUser(null);
       }
@@ -33,13 +32,9 @@ export function Header() {
   }, [pathname]);
 
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user');
-    }
+    clearAuthSession();
     setCurrentUser(null);
-    toast.success('Sesi berhasil diakhiri.');
+    toast.success('Anda telah keluar dari akun.');
     router.push('/login');
   };
 

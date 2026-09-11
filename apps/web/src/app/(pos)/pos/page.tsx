@@ -21,8 +21,14 @@ import {
   Printer,
   Check,
   X,
+  ShieldAlert,
+  Lock,
+  ArrowLeft,
+  LogIn,
+  AlertTriangle,
 } from 'lucide-react';
 import { restFetch } from '@/lib/api-client';
+import { getStoredAuth } from '@/lib/auth';
 import { addStoredOrder } from '@/lib/orders-store';
 
 interface Product {
@@ -100,7 +106,9 @@ const INITIAL_PRODUCTS: Product[] = [
 
 export default function PosTerminalPage() {
   const router = useRouter();
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [authStatus, setAuthStatus] = useState<'CHECKING' | 'AUTHORIZED' | 'UNAUTHORIZED'>('CHECKING');
+  const [unauthCountdown, setUnauthCountdown] = useState<number>(3);
+  const [unauthReason, setUnauthReason] = useState<string>('Sesi kasir atau administrator tidak ditemukan.');
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [search, setSearch] = useState<string>('');
@@ -117,26 +125,39 @@ export default function PosTerminalPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem('user');
-      if (!savedUser) {
-        toast.warning('Akses terbatas. Silakan masuk sebagai Kasir atau Admin.');
-        router.replace('/login');
+      const { user, token } = getStoredAuth();
+      if (!user || !token) {
+        setUnauthReason('Silakan masuk terlebih dahulu untuk membuka terminal kasir.');
+        setAuthStatus('UNAUTHORIZED');
+        toast.warning('Silakan masuk dengan akun kasir atau admin untuk membuka kasir.');
         return;
       }
-      try {
-        const user = JSON.parse(savedUser);
-        if (user.role !== 'ADMIN' && user.role !== 'CASHIER') {
-          toast.error('Akses ditolak. Terminal POS hanya dapat diakses oleh Kasir atau Admin.');
-          router.replace('/catalog');
-          return;
-        }
-        setIsAuthorized(true);
-      } catch {
-        router.replace('/login');
+      if (user.role !== 'ADMIN' && user.role !== 'CASHIER') {
+        setUnauthReason('Akun Anda saat ini tidak memiliki izin untuk membuka terminal kasir.');
+        setAuthStatus('UNAUTHORIZED');
+        toast.warning('Terminal kasir hanya dapat dibuka oleh staf kasir atau pengelola toko.');
         return;
       }
+      setAuthStatus('AUTHORIZED');
     }
-  }, [router]);
+  }, []);
+
+  // Countdown timer and automatic navigation when unauthorized
+  useEffect(() => {
+    if (authStatus === 'UNAUTHORIZED') {
+      const interval = setInterval(() => {
+        setUnauthCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            router.replace('/login?unauthorized=pos&redirect=/pos');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [authStatus, router]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -306,9 +327,9 @@ export default function PosTerminalPage() {
       }
       setPaymentModalOpen(false);
       setCart([]);
-      toast.success(`Transaksi berhasil. No: ${result.orderNumber || 'POS'}`);
+      toast.success(`Pembayaran berhasil dicatat. Nomor pesanan: ${result.orderNumber || 'POS'}`);
     } catch (err: any) {
-      toast.error(`Checkout gagal: ${err.message}`);
+      toast.error(`Pembayaran belum berhasil: ${err?.message || 'Silakan periksa kembali'}`);
     } finally {
       setLoading(false);
     }
@@ -325,11 +346,89 @@ export default function PosTerminalPage() {
     return matchCat && matchSearch;
   });
 
-  if (!isAuthorized) {
+  if (authStatus === 'CHECKING') {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] space-y-3">
-        <div className="w-8 h-8 rounded-full border-2 border-slate-200 border-t-md-primary animate-spin" />
-        <span className="text-xs font-semibold text-md-on-surface-variant">Memverifikasi sesi kasir...</span>
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[70vh] space-y-4 px-4">
+        <div className="w-9 h-9 rounded-full border-2 border-slate-200 border-t-md-primary animate-spin" />
+        <div className="text-center space-y-1">
+          <span className="text-xs font-bold text-md-on-surface">Memeriksa Izin Kasir...</span>
+          <p className="text-[11px] text-md-on-surface-variant">Menyiapkan terminal penjualan toko</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (authStatus === 'UNAUTHORIZED') {
+    return (
+      <div className="min-h-[calc(100vh-64px)] bg-[#f7f9fc] flex items-center justify-center p-4 sm:p-8">
+        <div className="w-full max-w-lg bg-white rounded-3xl border border-red-100 shadow-sm p-6 sm:p-8 space-y-6">
+          {/* Security Badge & Icon */}
+          <div className="flex items-center space-x-4">
+            <div className="w-14 h-14 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 shrink-0">
+              <ShieldAlert className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-red-100/70 text-red-800 text-[10px] font-bold tracking-wide uppercase">
+                <Lock className="w-3 h-3" />
+                <span>Akses Khusus</span>
+              </div>
+              <h1 className="text-lg font-bold text-slate-900 mt-1">Halaman Khusus Kasir Toko</h1>
+              <p className="text-xs text-slate-500">Perlu akun kasir atau admin untuk membuka</p>
+            </div>
+          </div>
+
+          {/* Reason Banner */}
+          <div className="p-4 rounded-2xl bg-red-50/70 border border-red-200/80 text-xs text-red-900 space-y-1">
+            <div className="font-bold flex items-center space-x-1.5">
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+              <span>Pemberitahuan:</span>
+            </div>
+            <p className="text-red-800/90 text-[11px] pl-5 leading-relaxed">
+              {unauthReason}
+            </p>
+          </div>
+
+          {/* Security Explanation */}
+          <div className="text-xs text-slate-600 leading-relaxed space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <p className="font-semibold text-slate-800">Tentang Halaman Ini:</p>
+            <p className="text-[11px] text-slate-500">
+              Halaman ini digunakan staf untuk memproses transaksi kasir fisik, scan barcode, dan cetak struk belanja.
+            </p>
+          </div>
+
+          {/* Countdown redirect indicator */}
+          <div className="space-y-1.5 text-center">
+            <p className="text-xs text-slate-500">
+              Membuka halaman masuk dalam <span className="font-bold text-red-600 font-mono text-sm">{unauthCountdown}</span> detik...
+            </p>
+            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="bg-red-500 h-full transition-all duration-1000 ease-linear rounded-full"
+                style={{ width: `${(unauthCountdown / 3) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
+            <button
+              type="button"
+              onClick={() => router.replace('/login?unauthorized=pos&redirect=/pos')}
+              className="w-full py-2.5 px-4 rounded-full bg-md-primary hover:bg-md-primary-hover text-white text-xs font-semibold inline-flex items-center justify-center space-x-2 transition-colors cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Masuk Akun Kasir</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => router.replace('/catalog')}
+              className="w-full py-2.5 px-4 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold inline-flex items-center justify-center space-x-2 transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Kembali ke Katalog</span>
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -755,7 +854,7 @@ export default function PosTerminalPage() {
 
             <div className="grid grid-cols-2 gap-2.5 pt-2">
               <button
-                onClick={() => toast.info('Struk dikirim ke printer thermal POS.')}
+                onClick={() => toast.success('Struk belanja berhasil dikirim ke printer kasir.')}
                 className="py-2.5 rounded-full bg-slate-900 text-white font-bold text-xs inline-flex items-center justify-center flex-row whitespace-nowrap hover:bg-slate-800 transition-colors"
               >
                 <Printer className="w-3.5 h-3.5 mr-1.5 shrink-0" />

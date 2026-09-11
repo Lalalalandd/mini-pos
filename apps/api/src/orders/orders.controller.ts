@@ -43,9 +43,9 @@ export class OrdersController {
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get order details by ID' })
-  async findOne(@Param('id') id: string) {
-    return this.ordersService.getOrderById(id);
+  @ApiOperation({ summary: 'Get order details by ID (Owner, Admin, or Cashier)' })
+  async findOne(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.ordersService.getOrderById(id, user);
   }
 
   @Patch(':id/status')

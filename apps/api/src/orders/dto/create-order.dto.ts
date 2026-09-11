@@ -26,12 +26,13 @@ export class OrderItemInputDto {
   @IsPositive()
   quantity: number;
 
-  @ApiProperty({ example: 38000 })
+  @ApiProperty({ example: 38000, required: false, description: 'Optional client reference price; server always calculates against database price' })
   @IsNumber()
   @IsPositive()
-  price: number;
+  @IsOptional()
+  price?: number;
 
-  @ApiProperty({ example: 0, required: false })
+  @ApiProperty({ example: 0, required: false, description: 'Optional cashier discount; subject to role authorization' })
   @IsNumber()
   @Min(0)
   @IsOptional()
@@ -58,6 +59,11 @@ export class CreateOrderDto {
   @IsEmail()
   @IsOptional()
   customerEmail?: string;
+
+  @ApiProperty({ example: 'AURA10', required: false })
+  @IsString()
+  @IsOptional()
+  promoCode?: string;
 
   @ApiProperty({ enum: PaymentMethod, default: PaymentMethod.CASH })
   @IsEnum(PaymentMethod)

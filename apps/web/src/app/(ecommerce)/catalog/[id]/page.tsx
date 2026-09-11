@@ -102,7 +102,7 @@ export default function ProductDetailPage({
             <button
               onClick={() => {
                 setIsWishlisted(!isWishlisted);
-                toast.info(isWishlisted ? 'Dihapus dari wishlist' : 'Disimpan ke wishlist');
+                toast.info(isWishlisted ? 'Dihapus dari daftar favorit' : 'Disimpan ke daftar favorit');
               }}
               className="absolute top-4 right-4 p-2.5 rounded-full bg-md-surface-container hover:bg-md-surface-container-high transition-colors text-md-on-surface-variant"
               aria-label="Simpan ke wishlist"

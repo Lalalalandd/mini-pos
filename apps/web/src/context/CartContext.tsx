@@ -27,6 +27,7 @@ import {
 } from '@/lib/promo-tax-store';
 import { addStoredOrder, Order } from '@/lib/orders-store';
 import { restFetch } from '@/lib/api-client';
+import { getStoredAuth } from '@/lib/auth';
 
 export interface CartItem {
   product: CatalogProduct;
@@ -126,7 +127,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const removeFromCart = (productId: string) => {
     setCart((prev) => prev.filter((i) => i.product.id !== productId));
-    toast.info('Item dihapus dari keranjang.');
+    toast.info('Produk dikeluarkan dari keranjang.');
   };
 
   const clearCart = () => {
@@ -162,11 +163,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     ? Math.round((taxableBase * taxSettings.serviceChargeRate) / 100)
     : 0;
 
-  const shippingFee = cart.length > 0
-    ? (rawSubtotal >= taxSettings.freeShippingMin ? 0 : taxSettings.flatShippingFee)
-    : 0;
+  const freeShippingMin = taxSettings.freeShippingMin || 100000;
+  const isFreeShipping = rawSubtotal >= freeShippingMin;
+  const shippingFee = isFreeShipping ? 0 : (taxSettings.flatShippingFee || 10000);
 
-  const finalTotal = Math.max(0, taxableBase + taxAmount + serviceAmount + shippingFee);
+  const finalTotal = Math.max(0, rawSubtotal - discountAmount + taxAmount + serviceAmount + shippingFee);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -184,22 +185,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
+
+    // Security & Business Rule: User MUST be authenticated before checkout
+    const { user, token } = getStoredAuth();
+    if (!user || !token) {
+      toast.info('Silakan masuk atau buat akun untuk melanjutkan pembayaran.');
+      setIsCartOpen(false);
+      router.push('/login?redirect=/catalog&action=checkout');
+      return;
+    }
+
     setCheckoutSuccess(true);
 
     try {
-      let customerName = 'Pelanggan Online (Web)';
-      let customerEmail = 'customer@aurapos.local';
-
-      if (typeof window !== 'undefined') {
-        const savedUser = localStorage.getItem('user');
-        if (savedUser) {
-          try {
-            const u = JSON.parse(savedUser);
-            if (u.name) customerName = u.name;
-            if (u.email) customerEmail = u.email;
-          } catch {}
-        }
-      }
+      const customerName = user.name || 'Pelanggan Online (Web)';
+      const customerEmail = user.email || 'customer@aurapos.local';
 
       const orderNumber = `WEB-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
 
@@ -263,11 +263,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setCheckoutSuccess(false);
         clearCart();
         closeCart();
-        toast.success(`Pesanan #${orderNumber} berhasil dibuat dan tercatat di sistem!`);
+        toast.success(`Pesanan #${orderNumber} berhasil dibuat dan siap diproses.`);
       }, 1200);
     } catch (err: any) {
       setCheckoutSuccess(false);
-      toast.error(`Gagal membuat pesanan: ${err?.message || 'Terjadi kesalahan'}`);
+      toast.error('Pesanan belum dapat diproses. Silakan coba sesaat lagi.');
     }
   };
 

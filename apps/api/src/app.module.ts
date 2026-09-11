@@ -21,8 +21,8 @@ import { OrdersModule } from './orders/orders.module';
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
-      playground: true,
-      introspection: true,
+      playground: process.env.NODE_ENV !== 'production',
+      introspection: process.env.NODE_ENV !== 'production',
       path: '/graphql',
       context: ({ req, res }: { req: any; res: any }) => ({ req, res }),
     }),

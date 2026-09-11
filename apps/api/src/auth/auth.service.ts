@@ -33,7 +33,8 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const assignedRole = (dto.role as 'ADMIN' | 'CASHIER' | 'CUSTOMER') || 'CUSTOMER';
+    // Security Enforcement: Self-registration is strictly CUSTOMER. Administrative accounts can only be provisioned by authenticated Admins.
+    const assignedRole = 'CUSTOMER';
 
     const [createdUser] = await this.db
       .insert(users)

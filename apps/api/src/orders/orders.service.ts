@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -22,7 +23,7 @@ export class OrdersService {
 
   async createOrder(dto: CreateOrderDto, cashierId?: string, customerId?: string): Promise<OrderDto> {
     if (!dto.items || dto.items.length === 0) {
-      throw new BadRequestException('Order must contain at least one item');
+      throw new BadRequestException('Pesanan harus memiliki minimal satu produk.');
     }
 
     const productIds = dto.items.map((i) => i.productId);
@@ -33,35 +34,73 @@ export class OrdersService {
 
     const productMap = new Map(existingProducts.map((p) => [p.id, p]));
 
-    // Validate stock and prepare items
+    // Security & Financial Integrity: Server-side pricing calculation
     let calculatedTotal = 0;
-    let calculatedDiscount = 0;
+    const preparedItems: Array<{
+      productId: string;
+      name: string;
+      sku: string;
+      price: number;
+      quantity: number;
+      discount: number;
+      subtotal: number;
+    }> = [];
 
     for (const item of dto.items) {
       const prod = productMap.get(item.productId);
       if (!prod) {
-        throw new NotFoundException(`Product with ID ${item.productId} was not found`);
+        throw new NotFoundException(`Produk dengan ID ${item.productId} tidak ditemukan.`);
       }
       if (prod.stock < item.quantity) {
         throw new BadRequestException(
-          `Insufficient stock for "${prod.name}". Available: ${prod.stock}, Requested: ${item.quantity}`,
+          `Stok tidak mencukupi untuk "${prod.name}". Tersedia: ${prod.stock}, Diminta: ${item.quantity}`,
         );
       }
 
+      // Security: Always use verified server-side price from database
       const itemPrice = parseFloat(prod.price);
-      const itemDiscount = item.discount || 0;
-      const subtotal = itemPrice * item.quantity - itemDiscount;
+      
+      // Security: Only authorized POS cashier can apply custom line item discounts
+      let itemDiscount = 0;
+      if (dto.source === 'POS' && cashierId && typeof item.discount === 'number') {
+        itemDiscount = Math.min(Math.max(0, item.discount), itemPrice * item.quantity);
+      }
 
+      const subtotal = itemPrice * item.quantity - itemDiscount;
       calculatedTotal += itemPrice * item.quantity;
-      calculatedDiscount += itemDiscount;
+
+      preparedItems.push({
+        productId: prod.id,
+        name: prod.name,
+        sku: prod.sku,
+        price: itemPrice,
+        quantity: item.quantity,
+        discount: itemDiscount,
+        subtotal,
+      });
     }
 
+    // Server-side promo code validation
+    let promoDiscount = 0;
+    if (dto.promoCode) {
+      const code = dto.promoCode.trim().toUpperCase();
+      if (code === 'AURA10') {
+        promoDiscount = Math.min(calculatedTotal * 0.1, 50000);
+      } else if (code === 'DISKON50') {
+        promoDiscount = Math.min(calculatedTotal * 0.5, 100000);
+      } else if (code === 'HEMAT20') {
+        promoDiscount = Math.min(calculatedTotal * 0.2, 75000);
+      }
+    }
+
+    const totalLineDiscounts = preparedItems.reduce((sum, item) => sum + item.discount, 0);
+    const calculatedDiscount = totalLineDiscounts + promoDiscount;
     const taxAmount = 0; // Tax calculation hook
-    const finalAmount = calculatedTotal - calculatedDiscount + taxAmount;
+    const finalAmount = Math.max(0, calculatedTotal - calculatedDiscount + taxAmount);
 
     if (dto.amountPaid < finalAmount) {
       throw new BadRequestException(
-        `Amount paid (${dto.amountPaid}) is less than final amount (${finalAmount})`,
+        `Jumlah pembayaran (Rp ${dto.amountPaid.toLocaleString('id-ID')}) kurang dari total tagihan (Rp ${finalAmount.toLocaleString('id-ID')}).`,
       );
     }
 
@@ -91,32 +130,40 @@ export class OrdersService {
       })
       .returning();
 
-    // Insert Order Items and decrement stock
-    for (const item of dto.items) {
-      const prod = productMap.get(item.productId)!;
-      const itemPrice = parseFloat(prod.price);
-      const itemDiscount = item.discount || 0;
-      const subtotal = itemPrice * item.quantity - itemDiscount;
-
+    // Insert Order Items and perform ATOMIC stock decrement to prevent race conditions
+    for (const item of preparedItems) {
       await this.db.insert(orderItems).values({
         orderId: createdOrder.id,
-        productId: prod.id,
-        productName: prod.name,
-        productSku: prod.sku,
-        price: itemPrice.toFixed(2),
+        productId: item.productId,
+        productName: item.name,
+        productSku: item.sku,
+        price: item.price.toFixed(2),
         quantity: item.quantity,
-        discount: itemDiscount.toFixed(2),
-        subtotal: subtotal.toFixed(2),
+        discount: item.discount.toFixed(2),
+        subtotal: item.subtotal.toFixed(2),
       });
 
-      const newStock = prod.stock - item.quantity;
-      await this.db
+      // Security: Atomic SQL Decrement with concurrency guard
+      const updatedProducts = await this.db
         .update(products)
-        .set({ stock: newStock, updatedAt: new Date() })
-        .where(eq(products.id, prod.id));
+        .set({
+          stock: sql`${products.stock} - ${item.quantity}`,
+          updatedAt: new Date(),
+        })
+        .where(
+          sql`${products.id} = ${item.productId} AND ${products.stock} >= ${item.quantity}`,
+        )
+        .returning({ id: products.id, stock: products.stock, minStockAlert: products.minStockAlert });
 
-      if (newStock <= prod.minStockAlert) {
-        await this.jobsService.queueLowStockAlert(prod.id, newStock, prod.minStockAlert);
+      if (!updatedProducts || updatedProducts.length === 0) {
+        throw new BadRequestException(
+          `Stok produk "${item.name}" telah habis atau tidak mencukupi saat proses checkout bersamaan.`,
+        );
+      }
+
+      const updatedProd = updatedProducts[0];
+      if (updatedProd.stock <= updatedProd.minStockAlert) {
+        await this.jobsService.queueLowStockAlert(updatedProd.id, updatedProd.stock, updatedProd.minStockAlert);
       }
     }
 
@@ -129,7 +176,7 @@ export class OrdersService {
     return this.getOrderById(createdOrder.id);
   }
 
-  async getOrderById(orderId: string): Promise<OrderDto> {
+  async getOrderById(orderId: string, currentUser?: any): Promise<OrderDto> {
     const order = await this.db.query.orders.findFirst({
       where: eq(orders.id, orderId),
       with: {
@@ -141,6 +188,17 @@ export class OrdersService {
 
     if (!order) {
       throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+
+    // Security: BOLA / IDOR Authorization Check
+    if (currentUser && currentUser.role === 'CUSTOMER') {
+      const isOwner =
+        (order.customerId && order.customerId === currentUser.id) ||
+        (order.customerEmail && order.customerEmail.toLowerCase() === (currentUser.email || '').toLowerCase());
+
+      if (!isOwner) {
+        throw new ForbiddenException('Akses ditolak: Anda tidak memiliki izin untuk melihat detail pesanan ini.');
+      }
     }
 
     return this.formatOrder(order);
